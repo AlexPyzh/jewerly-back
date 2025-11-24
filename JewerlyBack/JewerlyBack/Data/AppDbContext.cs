@@ -37,15 +37,26 @@ public class AppDbContext : DbContext
                 .IsRequired()
                 .HasMaxLength(256);
 
+            // PasswordHash nullable для пользователей через внешних провайдеров
             entity.Property(e => e.PasswordHash)
-                .IsRequired()
                 .HasMaxLength(500);
 
             entity.Property(e => e.Name)
                 .HasMaxLength(200);
 
+            entity.Property(e => e.Provider)
+                .HasMaxLength(50);
+
+            entity.Property(e => e.ExternalId)
+                .HasMaxLength(256);
+
+            // Индекс для быстрого поиска по email (case-insensitive в PostgreSQL)
             entity.HasIndex(e => e.Email)
                 .IsUnique();
+
+            // Индекс для быстрого поиска по внешнему провайдеру
+            entity.HasIndex(e => new { e.Provider, e.ExternalId })
+                .HasFilter("\"Provider\" IS NOT NULL");
 
             // При удалении пользователя НЕ удаляем его заказы и конфигурации
             // Это важные бизнес-данные, которые должны сохраняться для истории

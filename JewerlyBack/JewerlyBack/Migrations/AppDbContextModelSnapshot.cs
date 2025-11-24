@@ -36,14 +36,27 @@ namespace JewerlyBack.Migrations
                         .HasMaxLength(256)
                         .HasColumnType("character varying(256)");
 
+                    b.Property<string>("ExternalId")
+                        .HasMaxLength(256)
+                        .HasColumnType("character varying(256)");
+
+                    b.Property<bool>("IsEmailConfirmed")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTimeOffset?>("LastLoginAt")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<string>("Name")
                         .HasMaxLength(200)
                         .HasColumnType("character varying(200)");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
+
+                    b.Property<string>("Provider")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
 
                     b.Property<DateTimeOffset?>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -52,6 +65,9 @@ namespace JewerlyBack.Migrations
 
                     b.HasIndex("Email")
                         .IsUnique();
+
+                    b.HasIndex("Provider", "ExternalId")
+                        .HasFilter("\"Provider\" IS NOT NULL");
 
                     b.ToTable("Users");
                 });

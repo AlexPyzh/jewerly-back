@@ -5,7 +5,13 @@
       "Bash(dotnet build:*)",
       "Bash(dotnet ef:*)",
       "Bash(dotnet tool update:*)",
-      "Bash(curl:*)"
+      "Bash(curl:*)",
+      "Bash(mkdir:*)",
+      "Bash(dotnet add package:*)",
+      "Bash(dotnet clean:*)",
+      "Bash(lsof:*)",
+      "Bash(xargs kill:*)",
+      "Bash(dotnet run)"
     ],
     "deny": [],
     "ask": []
