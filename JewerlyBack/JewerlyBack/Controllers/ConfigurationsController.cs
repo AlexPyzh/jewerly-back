@@ -1,5 +1,7 @@
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Dto;
+using JewerlyBack.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JewerlyBack.Controllers;
@@ -7,8 +9,12 @@ namespace JewerlyBack.Controllers;
 /// <summary>
 /// Контроллер для работы с конфигурациями ювелирных изделий
 /// </summary>
+/// <remarks>
+/// Все endpoints требуют аутентификации - работают только с данными текущего пользователя.
+/// </remarks>
 [ApiController]
 [Route("api/configurations")]
+[Authorize]
 public class ConfigurationsController : ControllerBase
 {
     private readonly IConfigurationService _configurationService;
@@ -23,23 +29,6 @@ public class ConfigurationsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить временный UserId для MVP (будет заменено на реальную аутентификацию)
-    /// </summary>
-    private Guid GetCurrentUserId()
-    {
-        // MVP: Получаем userId из заголовка X-User-Id или используем тестовый GUID
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader)
-            && Guid.TryParse(userIdHeader, out var userId))
-        {
-            return userId;
-        }
-
-        // Для тестирования возвращаем фиксированный GUID
-        // TODO: Заменить на реальную аутентификацию через JWT/Cookie
-        return Guid.Parse("00000000-0000-0000-0000-000000000001");
-    }
-
-    /// <summary>
     /// Получить список конфигураций текущего пользователя
     /// </summary>
     [HttpGet]
@@ -47,7 +36,7 @@ public class ConfigurationsController : ControllerBase
     public async Task<ActionResult<IReadOnlyList<JewelryConfigurationListItemDto>>> GetUserConfigurations(
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var configurations = await _configurationService.GetUserConfigurationsAsync(userId, ct);
         return Ok(configurations);
     }
@@ -65,7 +54,7 @@ public class ConfigurationsController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var configuration = await _configurationService.GetConfigurationByIdAsync(userId, id, ct);
 
         if (configuration == null)
@@ -90,7 +79,7 @@ public class ConfigurationsController : ControllerBase
         [FromBody] JewelryConfigurationCreateRequest request,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
 
         try
         {
@@ -129,7 +118,7 @@ public class ConfigurationsController : ControllerBase
         [FromBody] JewelryConfigurationUpdateRequest request,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
 
         try
         {
@@ -163,7 +152,7 @@ public class ConfigurationsController : ControllerBase
         [FromRoute] Guid id,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var success = await _configurationService.DeleteConfigurationAsync(userId, id, ct);
 
         if (!success)

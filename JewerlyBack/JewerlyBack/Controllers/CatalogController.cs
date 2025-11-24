@@ -1,5 +1,6 @@
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Dto;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JewerlyBack.Controllers;
@@ -7,8 +8,13 @@ namespace JewerlyBack.Controllers;
 /// <summary>
 /// Контроллер для работы с каталогом изделий
 /// </summary>
+/// <remarks>
+/// Все endpoints публичные - не требуют аутентификации.
+/// Используются для отображения каталога товаров всем посетителям.
+/// </remarks>
 [ApiController]
 [Route("api/catalog")]
+[AllowAnonymous]
 public class CatalogController : ControllerBase
 {
     private readonly ICatalogService _catalogService;

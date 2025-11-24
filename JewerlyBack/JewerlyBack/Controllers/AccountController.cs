@@ -1,5 +1,6 @@
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Dto;
+using JewerlyBack.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -242,13 +243,7 @@ public class AccountController : ControllerBase
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]
     public async Task<ActionResult<UserProfileResponse>> GetProfile(CancellationToken ct)
     {
-        var userIdClaim = User.FindFirst("userId")?.Value
-                         ?? User.FindFirst("sub")?.Value;
-
-        if (string.IsNullOrEmpty(userIdClaim) || !Guid.TryParse(userIdClaim, out var userId))
-        {
-            return Unauthorized(new { message = "Invalid token" });
-        }
+        var userId = User.GetCurrentUserId();
 
         var user = await _accountService.GetByIdAsync(userId, ct);
 

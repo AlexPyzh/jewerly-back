@@ -1,5 +1,7 @@
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Dto;
+using JewerlyBack.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JewerlyBack.Controllers;
@@ -7,8 +9,12 @@ namespace JewerlyBack.Controllers;
 /// <summary>
 /// Контроллер для работы с заказами
 /// </summary>
+/// <remarks>
+/// Все endpoints требуют аутентификации - работают только с заказами текущего пользователя.
+/// </remarks>
 [ApiController]
 [Route("api/orders")]
+[Authorize]
 public class OrdersController : ControllerBase
 {
     private readonly IOrderService _orderService;
@@ -21,38 +27,6 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
-    /// Получить временный UserId для MVP (будет заменено на реальную аутентификацию)
-    /// </summary>
-    /// <remarks>
-    /// На текущем этапе (до внедрения JWT/Cookie аутентификации) userId получаем из заголовка X-User-Id.
-    /// Это позволяет тестировать API без полноценной системы аутентификации.
-    ///
-    /// Способы передачи userId:
-    /// 1. Заголовок X-User-Id: Основной способ для MVP
-    ///    Пример: curl -H "X-User-Id: 00000000-0000-0000-0000-000000000001" http://localhost:5000/api/orders
-    ///
-    /// 2. Fallback на тестовый GUID: Если заголовок не передан, используется фиксированный тестовый GUID
-    ///    Это удобно для быстрого тестирования через Swagger UI
-    ///
-    /// TODO: После внедрения аутентификации этот метод будет заменён на:
-    /// - User.FindFirst(ClaimTypes.NameIdentifier)?.Value для JWT
-    /// - HttpContext.User.Identity для Cookie-based auth
-    /// </remarks>
-    private Guid GetCurrentUserId()
-    {
-        // MVP: Получаем userId из заголовка X-User-Id
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader)
-            && Guid.TryParse(userIdHeader, out var userId))
-        {
-            return userId;
-        }
-
-        // Для тестирования возвращаем фиксированный GUID (тестовый пользователь из seed данных)
-        // TODO: Заменить на реальную аутентификацию через JWT/Cookie
-        return Guid.Parse("00000000-0000-0000-0000-000000000001");
-    }
-
-    /// <summary>
     /// Получить список заказов текущего пользователя
     /// </summary>
     /// <param name="ct">Токен отмены</param>
@@ -61,7 +35,7 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<OrderListItemDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<OrderListItemDto>>> GetUserOrders(CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var orders = await _orderService.GetUserOrdersAsync(userId, ct);
         return Ok(orders);
     }
@@ -77,7 +51,7 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<OrderDetailDto>> GetOrderById([FromRoute] Guid id, CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var order = await _orderService.GetOrderByIdAsync(userId, id, ct);
 
         if (order == null)
@@ -113,7 +87,7 @@ public class OrdersController : ControllerBase
         [FromBody] CreateOrderRequest request,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
 
         try
         {
@@ -154,7 +128,7 @@ public class OrdersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult> CancelOrder([FromRoute] Guid id, CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var success = await _orderService.CancelOrderAsync(userId, id, ct);
 
         if (!success)

@@ -1,5 +1,7 @@
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Dto;
+using JewerlyBack.Infrastructure.Extensions;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace JewerlyBack.Controllers;
@@ -17,9 +19,11 @@ namespace JewerlyBack.Controllers;
 /// - Все операции привязаны к userId (проверка владения)
 /// - Валидация типов и размеров файлов на уровне сервиса
 /// - multipart/form-data для загрузки файлов
+/// - Требуется JWT аутентификация для всех endpoints
 /// </remarks>
 [ApiController]
 [Route("api/assets")]
+[Authorize]
 public class AssetsController : ControllerBase
 {
     private readonly IAssetService _assetService;
@@ -32,26 +36,6 @@ public class AssetsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить временный UserId для MVP (будет заменено на реальную аутентификацию)
-    /// </summary>
-    /// <remarks>
-    /// На текущем этапе (до внедрения JWT/Cookie аутентификации) userId получаем из заголовка X-User-Id.
-    /// TODO: После внедрения аутентификации этот метод будет заменён на:
-    /// - User.FindFirst(ClaimTypes.NameIdentifier)?.Value для JWT
-    /// </remarks>
-    private Guid GetCurrentUserId()
-    {
-        if (Request.Headers.TryGetValue("X-User-Id", out var userIdHeader)
-            && Guid.TryParse(userIdHeader, out var userId))
-        {
-            return userId;
-        }
-
-        // Для тестирования возвращаем фиксированный GUID (тестовый пользователь из seed данных)
-        return Guid.Parse("00000000-0000-0000-0000-000000000001");
-    }
-
-    /// <summary>
     /// Получить список всех ассетов текущего пользователя
     /// </summary>
     /// <param name="ct">Токен отмены</param>
@@ -60,7 +44,7 @@ public class AssetsController : ControllerBase
     [ProducesResponseType(typeof(IReadOnlyList<UploadedAssetDto>), StatusCodes.Status200OK)]
     public async Task<ActionResult<IReadOnlyList<UploadedAssetDto>>> GetUserAssets(CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var assets = await _assetService.GetUserAssetsAsync(userId, ct);
         return Ok(assets);
     }
@@ -76,7 +60,7 @@ public class AssetsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult<UploadedAssetDto>> GetAsset([FromRoute] Guid id, CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var asset = await _assetService.GetAssetAsync(userId, id, ct);
 
         if (asset is null)
@@ -115,7 +99,7 @@ public class AssetsController : ControllerBase
         [FromForm] AssetUploadRequest request,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
 
         // Базовая валидация на уровне контроллера
         if (request.File is null || request.File.Length == 0)
@@ -168,7 +152,7 @@ public class AssetsController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<ActionResult> DeleteAsset([FromRoute] Guid id, CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
         var success = await _assetService.DeleteAssetAsync(userId, id, ct);
 
         if (!success)
@@ -196,7 +180,7 @@ public class AssetsController : ControllerBase
         [FromBody] AttachAssetRequest request,
         CancellationToken ct)
     {
-        var userId = GetCurrentUserId();
+        var userId = User.GetCurrentUserId();
 
         if (request.ConfigurationId == Guid.Empty)
         {
