@@ -1,3 +1,4 @@
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 using Microsoft.AspNetCore.Http;
 
@@ -10,12 +11,16 @@ namespace JewerlyBack.Application.Interfaces;
 public interface IAssetService
 {
     /// <summary>
-    /// Получить список всех ассетов пользователя
+    /// Получить пагинированный список ассетов пользователя
     /// </summary>
     /// <param name="userId">ID пользователя</param>
+    /// <param name="pagination">Параметры пагинации</param>
     /// <param name="ct">Токен отмены</param>
-    /// <returns>Список ассетов пользователя</returns>
-    Task<IReadOnlyList<UploadedAssetDto>> GetUserAssetsAsync(Guid userId, CancellationToken ct = default);
+    /// <returns>Пагинированный список ассетов пользователя</returns>
+    Task<PagedResult<UploadedAssetDto>> GetUserAssetsAsync(
+        Guid userId,
+        PaginationQuery pagination,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Получить информацию о конкретном ассете

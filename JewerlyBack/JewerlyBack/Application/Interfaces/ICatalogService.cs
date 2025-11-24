@@ -1,3 +1,4 @@
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 
 namespace JewerlyBack.Application.Interfaces;
@@ -23,9 +24,12 @@ public interface ICatalogService
     Task<IReadOnlyList<StoneTypeDto>> GetStoneTypesAsync(CancellationToken ct = default);
 
     /// <summary>
-    /// Получить список активных базовых моделей по категории
+    /// Получить пагинированный список активных базовых моделей по категории
     /// </summary>
-    Task<IReadOnlyList<JewelryBaseModelDto>> GetBaseModelsByCategoryAsync(int categoryId, CancellationToken ct = default);
+    Task<PagedResult<JewelryBaseModelDto>> GetBaseModelsByCategoryAsync(
+        int categoryId,
+        PaginationQuery pagination,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Получить детальную информацию о базовой модели по ID

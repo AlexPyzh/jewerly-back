@@ -1,4 +1,5 @@
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 using JewerlyBack.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authorization;
@@ -36,17 +37,26 @@ public class AssetsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить список всех ассетов текущего пользователя
+    /// Получить пагинированный список ассетов текущего пользователя
     /// </summary>
+    /// <param name="pagination">Параметры пагинации (page, pageSize)</param>
     /// <param name="ct">Токен отмены</param>
-    /// <returns>Список загруженных файлов</returns>
+    /// <returns>Пагинированный список загруженных файлов</returns>
+    /// <remarks>
+    /// Пример запроса: GET /api/assets?page=1&amp;pageSize=20
+    ///
+    /// По умолчанию: page=1, pageSize=20
+    /// Максимальный pageSize: 100
+    /// </remarks>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<UploadedAssetDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<UploadedAssetDto>>> GetUserAssets(CancellationToken ct)
+    [ProducesResponseType(typeof(PagedResult<UploadedAssetDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<UploadedAssetDto>>> GetUserAssets(
+        [FromQuery] PaginationQuery pagination,
+        CancellationToken ct)
     {
         var userId = User.GetCurrentUserId();
-        var assets = await _assetService.GetUserAssetsAsync(userId, ct);
-        return Ok(assets);
+        var result = await _assetService.GetUserAssetsAsync(userId, pagination, ct);
+        return Ok(result);
     }
 
     /// <summary>

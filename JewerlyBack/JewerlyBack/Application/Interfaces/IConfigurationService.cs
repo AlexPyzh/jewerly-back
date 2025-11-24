@@ -1,3 +1,4 @@
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 
 namespace JewerlyBack.Application.Interfaces;
@@ -8,10 +9,11 @@ namespace JewerlyBack.Application.Interfaces;
 public interface IConfigurationService
 {
     /// <summary>
-    /// Получить список конфигураций пользователя
+    /// Получить пагинированный список конфигураций пользователя
     /// </summary>
-    Task<IReadOnlyList<JewelryConfigurationListItemDto>> GetUserConfigurationsAsync(
+    Task<PagedResult<JewelryConfigurationListItemDto>> GetUserConfigurationsAsync(
         Guid userId,
+        PaginationQuery pagination,
         CancellationToken ct = default);
 
     /// <summary>

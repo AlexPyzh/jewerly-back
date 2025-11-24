@@ -1,4 +1,5 @@
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 using JewerlyBack.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authorization;
@@ -29,16 +30,26 @@ public class ConfigurationsController : ControllerBase
     }
 
     /// <summary>
-    /// Получить список конфигураций текущего пользователя
+    /// Получить пагинированный список конфигураций текущего пользователя
     /// </summary>
+    /// <param name="pagination">Параметры пагинации (page, pageSize)</param>
+    /// <param name="ct">Токен отмены</param>
+    /// <returns>Пагинированный список конфигураций</returns>
+    /// <remarks>
+    /// Пример запроса: GET /api/configurations?page=1&amp;pageSize=20
+    ///
+    /// По умолчанию: page=1, pageSize=20
+    /// Максимальный pageSize: 100
+    /// </remarks>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<JewelryConfigurationListItemDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<JewelryConfigurationListItemDto>>> GetUserConfigurations(
+    [ProducesResponseType(typeof(PagedResult<JewelryConfigurationListItemDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<JewelryConfigurationListItemDto>>> GetUserConfigurations(
+        [FromQuery] PaginationQuery pagination,
         CancellationToken ct)
     {
         var userId = User.GetCurrentUserId();
-        var configurations = await _configurationService.GetUserConfigurationsAsync(userId, ct);
-        return Ok(configurations);
+        var result = await _configurationService.GetUserConfigurationsAsync(userId, pagination, ct);
+        return Ok(result);
     }
 
     /// <summary>

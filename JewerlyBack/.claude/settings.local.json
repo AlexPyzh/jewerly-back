@@ -11,7 +11,9 @@
       "Bash(dotnet clean:*)",
       "Bash(lsof:*)",
       "Bash(xargs kill:*)",
-      "Bash(dotnet run)"
+      "Bash(dotnet run)",
+      "Bash(dotnet add:*)",
+      "Bash(PGPASSWORD=890iop psql:*)"
     ],
     "deny": [],
     "ask": []

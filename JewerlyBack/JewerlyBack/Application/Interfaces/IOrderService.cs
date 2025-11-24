@@ -1,3 +1,4 @@
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 
 namespace JewerlyBack.Application.Interfaces;
@@ -8,12 +9,16 @@ namespace JewerlyBack.Application.Interfaces;
 public interface IOrderService
 {
     /// <summary>
-    /// Получить список заказов пользователя
+    /// Получить пагинированный список заказов пользователя
     /// </summary>
     /// <param name="userId">ID пользователя</param>
+    /// <param name="pagination">Параметры пагинации</param>
     /// <param name="ct">Токен отмены</param>
-    /// <returns>Список заказов</returns>
-    Task<IReadOnlyList<OrderListItemDto>> GetUserOrdersAsync(Guid userId, CancellationToken ct = default);
+    /// <returns>Пагинированный список заказов</returns>
+    Task<PagedResult<OrderListItemDto>> GetUserOrdersAsync(
+        Guid userId,
+        PaginationQuery pagination,
+        CancellationToken ct = default);
 
     /// <summary>
     /// Получить детали заказа по ID

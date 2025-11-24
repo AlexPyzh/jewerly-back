@@ -1,4 +1,5 @@
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Data;
 using JewerlyBack.Dto;
 using JewerlyBack.Models;
@@ -26,18 +27,28 @@ public class ConfigurationService : IConfigurationService
         _pricingService = pricingService;
     }
 
-    public async Task<IReadOnlyList<JewelryConfigurationListItemDto>> GetUserConfigurationsAsync(
+    public async Task<PagedResult<JewelryConfigurationListItemDto>> GetUserConfigurationsAsync(
         Guid userId,
+        PaginationQuery pagination,
         CancellationToken ct = default)
     {
-        _logger.LogInformation("Getting configurations for user {UserId}", userId);
+        _logger.LogInformation("Getting configurations for user {UserId} (Page: {Page}, PageSize: {PageSize})",
+            userId, pagination.Page, pagination.PageSize);
 
-        var configurations = await _context.JewelryConfigurations
+        var query = _context.JewelryConfigurations
             .AsNoTracking()
             .Where(c => c.UserId == userId)
             .Include(c => c.BaseModel)
-            .Include(c => c.Material)
+            .Include(c => c.Material);
+
+        // Получаем общее количество элементов
+        var totalCount = await query.CountAsync(ct);
+
+        // Получаем элементы текущей страницы
+        var items = await query
             .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
+            .Skip(pagination.Skip)
+            .Take(pagination.PageSize)
             .Select(c => new JewelryConfigurationListItemDto
             {
                 Id = c.Id,
@@ -50,7 +61,13 @@ public class ConfigurationService : IConfigurationService
             })
             .ToListAsync(ct);
 
-        return configurations;
+        return new PagedResult<JewelryConfigurationListItemDto>
+        {
+            Items = items,
+            Page = pagination.Page,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<JewelryConfigurationDetailDto?> GetConfigurationByIdAsync(

@@ -1,4 +1,5 @@
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Data;
 using JewerlyBack.Dto;
 using Microsoft.EntityFrameworkCore;
@@ -26,7 +27,7 @@ public class CatalogService : ICatalogService
 
         var categories = await _context.JewelryCategories
             .Where(c => c.IsActive)
-            .OrderBy(c => c.Name)
+            .OrderBy(c => c.Id)
             .Select(c => new JewelryCategoryDto
             {
                 Id = c.Id,
@@ -84,13 +85,25 @@ public class CatalogService : ICatalogService
         return stoneTypes;
     }
 
-    public async Task<IReadOnlyList<JewelryBaseModelDto>> GetBaseModelsByCategoryAsync(int categoryId, CancellationToken ct = default)
+    public async Task<PagedResult<JewelryBaseModelDto>> GetBaseModelsByCategoryAsync(
+        int categoryId,
+        PaginationQuery pagination,
+        CancellationToken ct = default)
     {
-        _logger.LogInformation("Fetching active base models for category {CategoryId}", categoryId);
+        _logger.LogInformation("Fetching active base models for category {CategoryId} (Page: {Page}, PageSize: {PageSize})",
+            categoryId, pagination.Page, pagination.PageSize);
 
-        var baseModels = await _context.JewelryBaseModels
-            .Where(bm => bm.CategoryId == categoryId && bm.IsActive)
+        var query = _context.JewelryBaseModels
+            .Where(bm => bm.CategoryId == categoryId && bm.IsActive);
+
+        // Получаем общее количество элементов
+        var totalCount = await query.CountAsync(ct);
+
+        // Получаем элементы текущей страницы
+        var items = await query
             .OrderBy(bm => bm.Name)
+            .Skip(pagination.Skip)
+            .Take(pagination.PageSize)
             .Select(bm => new JewelryBaseModelDto
             {
                 Id = bm.Id,
@@ -103,8 +116,16 @@ public class CatalogService : ICatalogService
             })
             .ToListAsync(ct);
 
-        _logger.LogInformation("Found {Count} active base models for category {CategoryId}", baseModels.Count, categoryId);
-        return baseModels;
+        _logger.LogInformation("Found {TotalCount} active base models for category {CategoryId}, returned {ItemCount} items",
+            totalCount, categoryId, items.Count);
+
+        return new PagedResult<JewelryBaseModelDto>
+        {
+            Items = items,
+            Page = pagination.Page,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     public async Task<JewelryBaseModelDto?> GetBaseModelByIdAsync(Guid id, CancellationToken ct = default)

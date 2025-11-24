@@ -1,5 +1,6 @@
 using AutoMapper;
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Data;
 using JewerlyBack.Dto;
 using JewerlyBack.Models;
@@ -40,15 +41,37 @@ public class OrderService : IOrderService
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<OrderListItemDto>> GetUserOrdersAsync(Guid userId, CancellationToken ct = default)
+    public async Task<PagedResult<OrderListItemDto>> GetUserOrdersAsync(
+        Guid userId,
+        PaginationQuery pagination,
+        CancellationToken ct = default)
     {
-        var orders = await _context.Orders
+        _logger.LogInformation("Getting orders for user {UserId} (Page: {Page}, PageSize: {PageSize})",
+            userId, pagination.Page, pagination.PageSize);
+
+        var query = _context.Orders
             .AsNoTracking()
-            .Where(o => o.UserId == userId)
+            .Where(o => o.UserId == userId);
+
+        // Получаем общее количество элементов
+        var totalCount = await query.CountAsync(ct);
+
+        // Получаем элементы текущей страницы
+        var orders = await query
             .OrderByDescending(o => o.CreatedAt)
+            .Skip(pagination.Skip)
+            .Take(pagination.PageSize)
             .ToListAsync(ct);
 
-        return _mapper.Map<IReadOnlyList<OrderListItemDto>>(orders);
+        var items = _mapper.Map<List<OrderListItemDto>>(orders);
+
+        return new PagedResult<OrderListItemDto>
+        {
+            Items = items,
+            Page = pagination.Page,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     /// <inheritdoc />

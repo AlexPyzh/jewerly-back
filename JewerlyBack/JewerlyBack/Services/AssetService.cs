@@ -1,5 +1,6 @@
 using AutoMapper;
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Data;
 using JewerlyBack.Dto;
 using JewerlyBack.Infrastructure.Storage;
@@ -70,15 +71,37 @@ public class AssetService : IAssetService
     }
 
     /// <inheritdoc />
-    public async Task<IReadOnlyList<UploadedAssetDto>> GetUserAssetsAsync(Guid userId, CancellationToken ct = default)
+    public async Task<PagedResult<UploadedAssetDto>> GetUserAssetsAsync(
+        Guid userId,
+        PaginationQuery pagination,
+        CancellationToken ct = default)
     {
-        var assets = await _context.UploadedAssets
+        _logger.LogInformation("Getting assets for user {UserId} (Page: {Page}, PageSize: {PageSize})",
+            userId, pagination.Page, pagination.PageSize);
+
+        var query = _context.UploadedAssets
             .AsNoTracking()
-            .Where(a => a.UserId == userId)
+            .Where(a => a.UserId == userId);
+
+        // Получаем общее количество элементов
+        var totalCount = await query.CountAsync(ct);
+
+        // Получаем элементы текущей страницы
+        var assets = await query
             .OrderByDescending(a => a.CreatedAt)
+            .Skip(pagination.Skip)
+            .Take(pagination.PageSize)
             .ToListAsync(ct);
 
-        return _mapper.Map<List<UploadedAssetDto>>(assets);
+        var items = _mapper.Map<List<UploadedAssetDto>>(assets);
+
+        return new PagedResult<UploadedAssetDto>
+        {
+            Items = items,
+            Page = pagination.Page,
+            PageSize = pagination.PageSize,
+            TotalCount = totalCount
+        };
     }
 
     /// <inheritdoc />

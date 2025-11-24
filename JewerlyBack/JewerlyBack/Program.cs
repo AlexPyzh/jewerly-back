@@ -2,9 +2,12 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Amazon.S3;
+using FluentValidation;
+using FluentValidation.AspNetCore;
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Data;
 using JewerlyBack.Infrastructure.Auth;
+using JewerlyBack.Infrastructure.Configuration;
 using JewerlyBack.Infrastructure.Middleware;
 using JewerlyBack.Infrastructure.Storage;
 using JewerlyBack.Services;
@@ -44,28 +47,68 @@ builder.Services.AddControllers()
         options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
     });
 
+// ========================================
+// FluentValidation Configuration
+// ========================================
+builder.Services.AddFluentValidationAutoValidation()
+    .AddFluentValidationClientsideAdapters();
+
+builder.Services.AddValidatorsFromAssemblyContaining<Program>();
+
 builder.Services.AddEndpointsApiExplorer();
 
 // ========================================
 // CORS Configuration
 // ========================================
+builder.Services.Configure<CorsOptions>(
+    builder.Configuration.GetSection(CorsOptions.SectionName));
+
+var corsOptions = builder.Configuration
+    .GetSection(CorsOptions.SectionName)
+    .Get<CorsOptions>()
+    ?? new CorsOptions();
+
 builder.Services.AddCors(options =>
 {
-    options.AddDefaultPolicy(policy =>
+    options.AddPolicy("DefaultCorsPolicy", policy =>
     {
         if (builder.Environment.IsDevelopment())
         {
-            policy.AllowAnyOrigin()
-                  .AllowAnyMethod()
-                  .AllowAnyHeader();
+            // Development: разрешаем указанные localhost origins + любые заголовки/методы
+            if (corsOptions.AllowedOrigins.Length > 0)
+            {
+                policy.WithOrigins(corsOptions.AllowedOrigins)
+                      .AllowAnyMethod()
+                      .AllowAnyHeader()
+                      .AllowCredentials();
+            }
+            else
+            {
+                // Fallback: разрешаем всё для разработки
+                policy.AllowAnyOrigin()
+                      .AllowAnyMethod()
+                      .AllowAnyHeader();
+            }
         }
         else
         {
-            // TODO: Настроить разрешённые origins для production
-            policy.WithOrigins("https://your-app-domain.com")
-                  .AllowAnyMethod()
-                  .AllowAnyHeader()
-                  .AllowCredentials();
+            // Production: только явно указанные origins из конфигурации
+            // TODO: В Production замените AllowedOrigins в appsettings.json на реальные домены
+            // Например: ["https://app.jewerly.com", "https://jewerly.com"]
+            if (corsOptions.AllowedOrigins.Length > 0)
+            {
+                policy.WithOrigins(corsOptions.AllowedOrigins)
+                      .WithMethods("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH")
+                      .WithHeaders("Content-Type", "Authorization", "X-Requested-With", "Accept", "Origin")
+                      .AllowCredentials()
+                      .SetIsOriginAllowedToAllowWildcardSubdomains(); // Разрешаем поддомены
+            }
+            else
+            {
+                throw new InvalidOperationException(
+                    "CORS AllowedOrigins must be configured in Production. " +
+                    "Add 'Cors:AllowedOrigins' to appsettings.json");
+            }
         }
     });
 });
@@ -79,13 +122,58 @@ builder.Services.AddSwaggerGen(options =>
     {
         Title = "Jewerly API",
         Version = "v1",
-        Description = "API для мобильного приложения Jewerly",
+        Description = @"
+# Jewerly API
+
+REST API для мобильного приложения Jewerly (кастомные ювелирные изделия).
+
+## Аутентификация
+
+API использует JWT Bearer токены.
+
+### Как получить токен:
+1. **Регистрация**: `POST /api/account/register`
+2. **Вход**: `POST /api/account/login`
+3. **Google Sign-In**: `POST /api/account/google`
+4. **Apple Sign-In**: `POST /api/account/apple`
+
+### Как использовать токен:
+После успешной аутентификации вы получите `accessToken` в ответе.
+
+В Swagger UI:
+- Нажмите кнопку **Authorize** 🔒
+- Введите токен в формате: `Bearer YOUR_ACCESS_TOKEN` или просто `YOUR_ACCESS_TOKEN`
+- Нажмите **Authorize**
+
+Во Flutter/HTTP клиентах добавьте заголовок:
+```
+Authorization: Bearer YOUR_ACCESS_TOKEN
+```
+
+## Основные разделы API
+
+- **Account** — регистрация, вход, профиль
+- **Catalog** — категории, материалы, камни, базовые модели (публичные endpoints)
+- **Configurations** — создание и управление конфигурациями изделий
+- **Assets** — загрузка файлов (паттерны, текстуры, изображения)
+- **Orders** — создание и управление заказами
+- **Health** — health check endpoints для мониторинга
+",
         Contact = new OpenApiContact
         {
-            Name = "Support",
+            Name = "Jewerly Support",
             Email = "support@jewerly.app"
         }
     });
+
+    // TODO: Включить XML-комментарии для более детальной документации
+    // Раскомментируйте после добавления <GenerateDocumentationFile>true</GenerateDocumentationFile> в .csproj:
+    // var xmlFile = $"{Assembly.GetExecutingAssembly().GetName().Name}.xml";
+    // var xmlPath = Path.Combine(AppContext.BaseDirectory, xmlFile);
+    // if (File.Exists(xmlPath))
+    // {
+    //     options.IncludeXmlComments(xmlPath);
+    // }
 
     // JWT Bearer authentication в Swagger
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -95,7 +183,19 @@ builder.Services.AddSwaggerGen(options =>
         Scheme = "bearer",
         BearerFormat = "JWT",
         In = ParameterLocation.Header,
-        Description = "Введите JWT токен"
+        Description = @"JWT Authorization header с использованием Bearer scheme.
+
+**Как использовать:**
+1. Получите токен через `/api/account/login`, `/api/account/register`, или OAuth endpoints
+2. Введите **только токен** (без слова 'Bearer') в поле ниже
+3. Нажмите **Authorize**
+
+Пример токена:
+```
+eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Swagger автоматически добавит префикс 'Bearer' к вашему токену."
     });
 
     options.AddSecurityRequirement(new OpenApiSecurityRequirement
@@ -112,6 +212,20 @@ builder.Services.AddSwaggerGen(options =>
             Array.Empty<string>()
         }
     });
+
+    // Группировка по тегам для лучшей навигации
+    options.TagActionsBy(api =>
+    {
+        if (api.GroupName != null)
+        {
+            return new[] { api.GroupName };
+        }
+
+        var controllerName = api.ActionDescriptor.RouteValues["controller"];
+        return new[] { controllerName ?? "Unknown" };
+    });
+
+    options.OrderActionsBy(api => api.RelativePath);
 });
 
 // ========================================
@@ -250,9 +364,9 @@ if (!app.Environment.IsDevelopment())
 }
 
 // 4. CORS
-app.UseCors();
+app.UseCors("DefaultCorsPolicy");
 
-// 5. Swagger (только в Development или по флагу)
+// 5. Swagger (в Development — свободно, в Production — с ограничениями)
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -260,6 +374,24 @@ if (app.Environment.IsDevelopment())
     {
         options.SwaggerEndpoint("/swagger/v1/swagger.json", "Jewerly API v1");
         options.RoutePrefix = "swagger";
+        options.DocumentTitle = "Jewerly API - Swagger UI";
+        options.DisplayRequestDuration();
+        options.EnableTryItOutByDefault();
+    });
+}
+else
+{
+    // Production: Swagger доступен, но рекомендуется защитить
+    // TODO: В production настроить защиту Swagger через:
+    // - IP whitelist (только внутренние IP)
+    // - Basic Authentication
+    // - Или полностью отключить, оставив только для staging окружения
+    app.UseSwagger();
+    app.UseSwaggerUI(options =>
+    {
+        options.SwaggerEndpoint("/swagger/v1/swagger.json", "Jewerly API v1");
+        options.RoutePrefix = "swagger";
+        options.DocumentTitle = "Jewerly API - Production";
     });
 }
 

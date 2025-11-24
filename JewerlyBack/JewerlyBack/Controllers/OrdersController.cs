@@ -1,4 +1,5 @@
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 using JewerlyBack.Infrastructure.Extensions;
 using Microsoft.AspNetCore.Authorization;
@@ -27,17 +28,26 @@ public class OrdersController : ControllerBase
     }
 
     /// <summary>
-    /// Получить список заказов текущего пользователя
+    /// Получить пагинированный список заказов текущего пользователя
     /// </summary>
+    /// <param name="pagination">Параметры пагинации (page, pageSize)</param>
     /// <param name="ct">Токен отмены</param>
-    /// <returns>Список заказов</returns>
+    /// <returns>Пагинированный список заказов</returns>
+    /// <remarks>
+    /// Пример запроса: GET /api/orders?page=1&amp;pageSize=20
+    ///
+    /// По умолчанию: page=1, pageSize=20
+    /// Максимальный pageSize: 100
+    /// </remarks>
     [HttpGet]
-    [ProducesResponseType(typeof(IReadOnlyList<OrderListItemDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<OrderListItemDto>>> GetUserOrders(CancellationToken ct)
+    [ProducesResponseType(typeof(PagedResult<OrderListItemDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<OrderListItemDto>>> GetUserOrders(
+        [FromQuery] PaginationQuery pagination,
+        CancellationToken ct)
     {
         var userId = User.GetCurrentUserId();
-        var orders = await _orderService.GetUserOrdersAsync(userId, ct);
-        return Ok(orders);
+        var result = await _orderService.GetUserOrdersAsync(userId, pagination, ct);
+        return Ok(result);
     }
 
     /// <summary>

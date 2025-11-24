@@ -361,29 +361,110 @@ public class AppDbContext : DbContext
         // ========================================
 
         // Категории ювелирных изделий
+        // Фиксированные Id и Code для стабильного API и фронтенда
         modelBuilder.Entity<JewelryCategory>().HasData(
             new JewelryCategory
             {
                 Id = 1,
-                Code = "ring",
-                Name = "Кольца",
-                Description = "Обручальные и декоративные кольца",
+                Code = "rings",
+                Name = "Rings",
+                Description = "Engagement and decorative rings",
                 IsActive = true
             },
             new JewelryCategory
             {
                 Id = 2,
-                Code = "pendant",
-                Name = "Подвески",
-                Description = "Подвески и кулоны",
+                Code = "earrings",
+                Name = "Earrings",
+                Description = "Various types of earrings",
                 IsActive = true
             },
             new JewelryCategory
             {
                 Id = 3,
-                Code = "earring",
-                Name = "Серьги",
-                Description = "Серьги различных типов",
+                Code = "pendants",
+                Name = "Pendants",
+                Description = "Pendants and charms",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 4,
+                Code = "necklaces",
+                Name = "Necklaces",
+                Description = "Statement and delicate necklaces",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 5,
+                Code = "bracelets",
+                Name = "Bracelets",
+                Description = "Bangles and chain bracelets",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 6,
+                Code = "chains",
+                Name = "Chains",
+                Description = "Necklace and bracelet chains",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 7,
+                Code = "brooches",
+                Name = "Brooches",
+                Description = "Decorative brooches and pins",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 8,
+                Code = "cufflinks",
+                Name = "Cufflinks",
+                Description = "Cufflinks and tie accessories",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 9,
+                Code = "piercing",
+                Name = "Piercing",
+                Description = "Body piercing jewelry",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 10,
+                Code = "hair_jewelry",
+                Name = "Hair Jewelry",
+                Description = "Hair accessories and ornaments",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 11,
+                Code = "sets",
+                Name = "Sets",
+                Description = "Matching jewelry sets",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 12,
+                Code = "mens_jewelry",
+                Name = "Men's Jewelry",
+                Description = "Jewelry designed for men",
+                IsActive = true
+            },
+            new JewelryCategory
+            {
+                Id = 13,
+                Code = "custom",
+                Name = "Custom Designs",
+                Description = "Unique custom-made jewelry",
                 IsActive = true
             }
         );

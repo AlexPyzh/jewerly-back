@@ -1,4 +1,5 @@
 using JewerlyBack.Application.Interfaces;
+using JewerlyBack.Application.Models;
 using JewerlyBack.Dto;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -60,18 +61,27 @@ public class CatalogController : ControllerBase
     }
 
     /// <summary>
-    /// Получить список активных базовых моделей по категории
+    /// Получить пагинированный список активных базовых моделей по категории
     /// </summary>
     /// <param name="categoryId">ID категории</param>
+    /// <param name="pagination">Параметры пагинации (page, pageSize)</param>
     /// <param name="ct">Токен отмены</param>
+    /// <returns>Пагинированный список базовых моделей</returns>
+    /// <remarks>
+    /// Пример запроса: GET /api/catalog/base-models?categoryId=1&amp;page=1&amp;pageSize=20
+    ///
+    /// По умолчанию: page=1, pageSize=20
+    /// Максимальный pageSize: 100
+    /// </remarks>
     [HttpGet("base-models")]
-    [ProducesResponseType(typeof(IReadOnlyList<JewelryBaseModelDto>), StatusCodes.Status200OK)]
-    public async Task<ActionResult<IReadOnlyList<JewelryBaseModelDto>>> GetBaseModelsByCategory(
+    [ProducesResponseType(typeof(PagedResult<JewelryBaseModelDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<PagedResult<JewelryBaseModelDto>>> GetBaseModelsByCategory(
         [FromQuery] int categoryId,
+        [FromQuery] PaginationQuery pagination,
         CancellationToken ct)
     {
-        var baseModels = await _catalogService.GetBaseModelsByCategoryAsync(categoryId, ct);
-        return Ok(baseModels);
+        var result = await _catalogService.GetBaseModelsByCategoryAsync(categoryId, pagination, ct);
+        return Ok(result);
     }
 
     /// <summary>
