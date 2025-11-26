@@ -264,6 +264,50 @@ public class AccountController : ControllerBase
         });
     }
 
+    /// <summary>
+    /// Получить профиль текущего пользователя (используется фронтендом)
+    /// </summary>
+    /// <param name="ct">Токен отмены</param>
+    /// <returns>UserProfileDto с основными данными пользователя</returns>
+    /// <remarks>
+    /// Требует авторизации (JWT токен в заголовке Authorization: Bearer {token}).
+    /// Этот endpoint возвращает упрощённую версию профиля для использования на фронтенде.
+    ///
+    /// Пример запроса:
+    /// ```
+    /// GET /api/account/me
+    /// Authorization: Bearer {jwt_token}
+    /// ```
+    /// </remarks>
+    [HttpGet("me")]
+    [Authorize]
+    [ProducesResponseType(typeof(UserProfileDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<UserProfileDto>> GetCurrentUserProfile(CancellationToken ct)
+    {
+        try
+        {
+            var userId = User.GetCurrentUserId();
+
+            _logger.LogInformation("Fetching profile for user: {UserId}", userId);
+
+            var profile = await _accountService.GetCurrentUserProfileAsync(userId, ct);
+
+            return Ok(profile);
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("not found"))
+        {
+            _logger.LogWarning(ex, "User not found for /me endpoint");
+            return NotFound(new { message = "User not found" });
+        }
+        catch (InvalidOperationException ex) when (ex.Message.Contains("User ID claim"))
+        {
+            _logger.LogWarning(ex, "Invalid token - missing user ID claim");
+            return Unauthorized(new { message = "Invalid token" });
+        }
+    }
+
     // TODO: Добавить endpoints:
     // - POST /api/account/refresh — обновление access токена через refresh token
     // - POST /api/account/logout — инвалидация refresh токена

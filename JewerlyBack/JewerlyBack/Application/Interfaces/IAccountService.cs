@@ -57,4 +57,13 @@ public interface IAccountService
     /// <param name="ct">Токен отмены</param>
     /// <returns>Пользователь или null</returns>
     Task<AppUser?> GetByEmailAsync(string email, CancellationToken ct = default);
+
+    /// <summary>
+    /// Получить профиль текущего пользователя
+    /// </summary>
+    /// <param name="userId">ID пользователя</param>
+    /// <param name="ct">Токен отмены</param>
+    /// <returns>UserProfileDto с данными пользователя</returns>
+    /// <exception cref="InvalidOperationException">Если пользователь не найден</exception>
+    Task<UserProfileDto> GetCurrentUserProfileAsync(Guid userId, CancellationToken ct = default);
 }

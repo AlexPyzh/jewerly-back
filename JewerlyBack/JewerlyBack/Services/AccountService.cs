@@ -243,6 +243,29 @@ public class AccountService : IAccountService
             .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLower, ct);
     }
 
+    /// <inheritdoc />
+    public async Task<UserProfileDto> GetCurrentUserProfileAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await _context.Users
+            .AsNoTracking()
+            .FirstOrDefaultAsync(u => u.Id == userId, ct);
+
+        if (user is null)
+        {
+            _logger.LogWarning("User not found for profile request: {UserId}", userId);
+            throw new InvalidOperationException($"User with ID {userId} not found");
+        }
+
+        return new UserProfileDto
+        {
+            UserId = user.Id,
+            Email = user.Email,
+            Name = user.Name,
+            CreatedAt = user.CreatedAt.DateTime,
+            AvatarUrl = null // TODO: Добавить поле AvatarUrl в AppUser если потребуется
+        };
+    }
+
     /// <summary>
     /// Ищет или создаёт пользователя для внешнего провайдера
     /// </summary>
