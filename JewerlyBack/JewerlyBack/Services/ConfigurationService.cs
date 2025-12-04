@@ -373,4 +373,39 @@ public class ConfigurationService : IConfigurationService
 
         return true;
     }
+
+    public async Task<IReadOnlyList<JewelryConfigurationSummaryDto>> GetRecentForUserAsync(
+        Guid userId,
+        int take,
+        CancellationToken ct = default)
+    {
+        _logger.LogInformation("Getting recent {Count} configurations for user {UserId}", take, userId);
+
+        // Нормализуем количество элементов (от 1 до 20)
+        var normalizedTake = Math.Clamp(take, 1, 20);
+
+        var items = await _context.JewelryConfigurations
+            .AsNoTracking()
+            .Where(c => c.UserId == userId)
+            .Include(c => c.BaseModel)
+                .ThenInclude(bm => bm.Category)
+            .Include(c => c.Material)
+            .OrderByDescending(c => c.UpdatedAt ?? c.CreatedAt)
+            .Take(normalizedTake)
+            .Select(c => new JewelryConfigurationSummaryDto
+            {
+                Id = c.Id,
+                Name = c.Name,
+                CategoryName = c.BaseModel.Category.Name,
+                MaterialName = c.Material.Name,
+                EstimatedPrice = c.EstimatedPrice,
+                UpdatedAt = c.UpdatedAt,
+                ThumbnailUrl = c.BaseModel.PreviewImageUrl
+            })
+            .ToListAsync(ct);
+
+        _logger.LogInformation("Found {Count} recent configurations for user {UserId}", items.Count, userId);
+
+        return items;
+    }
 }

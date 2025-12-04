@@ -14,7 +14,10 @@
       "Bash(dotnet run)",
       "Bash(dotnet add:*)",
       "Bash(PGPASSWORD=890iop psql:*)",
-      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run:*)"
+      "Bash(ASPNETCORE_ENVIRONMENT=Development dotnet run:*)",
+      "Bash(cat:*)",
+      "Bash(docker compose:*)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "ask": []

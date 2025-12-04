@@ -4,8 +4,11 @@ using System.Text.Json.Serialization;
 using Amazon.S3;
 using FluentValidation;
 using FluentValidation.AspNetCore;
+using JewerlyBack.Application.Ai;
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Data;
+using JewerlyBack.Infrastructure.Ai;
+using JewerlyBack.Infrastructure.Ai.Configuration;
 using JewerlyBack.Infrastructure.Auth;
 using JewerlyBack.Infrastructure.Configuration;
 using JewerlyBack.Infrastructure.Middleware;
@@ -13,10 +16,14 @@ using JewerlyBack.Infrastructure.Storage;
 using JewerlyBack.Services;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
+
+// Ensure environment variables are loaded
+builder.Configuration.AddEnvironmentVariables();
 
 // ========================================
 // Logging Configuration
@@ -331,6 +338,45 @@ builder.Services.AddSingleton<IAmazonS3>(_ =>
 builder.Services.AddSingleton<IS3StorageService, S3StorageService>();
 
 // ========================================
+// OpenAI Configuration
+// ========================================
+// ВАЖНО: ApiKey НЕ хранится в appsettings.json!
+// ApiKey загружается из переменной окружения OPENAI_API_KEY.
+//
+// Установка ключа:
+// - Development: export OPENAI_API_KEY=sk-...
+// - Docker: environment в docker-compose.yml
+// - Heroku/Render: Config Vars / Environment Variables
+// - GitHub Actions: secrets.OPENAI_API_KEY
+//
+// Валидация ApiKey происходит при старте приложения.
+// Если OPENAI_API_KEY не установлен, приложение не запустится.
+builder.Services
+    .AddOptions<OpenAiOptions>()
+    .Bind(builder.Configuration.GetSection(OpenAiOptions.SectionName))
+    .Configure(options =>
+    {
+        var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (!string.IsNullOrWhiteSpace(envKey))
+        {
+            options.ApiKey = envKey;
+        }
+    })
+    .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
+        "OPENAI_API_KEY must be provided. Set it as an environment variable.")
+    .ValidateOnStart();
+
+// Регистрация HttpClient для OpenAiImageProvider
+builder.Services.AddHttpClient<OpenAiImageProvider>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl);
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
+
+// ========================================
 // Application Services
 // ========================================
 builder.Services.AddSingleton<ITokenService, TokenService>();
@@ -340,6 +386,14 @@ builder.Services.AddScoped<IPricingService, PricingService>();
 builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
+builder.Services.AddScoped<IAiPreviewService, AiPreviewService>();
+
+// AI Services
+builder.Services.AddScoped<IAiImageProvider, OpenAiImageProvider>();
+builder.Services.AddScoped<IAiPromptBuilder, AiPromptBuilder>();
+
+// Background Services
+builder.Services.AddHostedService<AiPreviewBackgroundService>();
 
 // ========================================
 // Build Application

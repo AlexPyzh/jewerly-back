@@ -30,6 +30,28 @@ public class ConfigurationsController : ControllerBase
     }
 
     /// <summary>
+    /// Получить последние конфигурации пользователя
+    /// </summary>
+    /// <param name="take">Количество элементов (по умолчанию 5, максимум 20)</param>
+    /// <param name="ct">Токен отмены</param>
+    /// <returns>Список последних конфигураций</returns>
+    /// <remarks>
+    /// Пример запроса: GET /api/configurations/recent?take=5
+    ///
+    /// Возвращает последние конфигурации, отсортированные по дате обновления (UpdatedAt DESC).
+    /// </remarks>
+    [HttpGet("recent")]
+    [ProducesResponseType(typeof(IReadOnlyList<JewelryConfigurationSummaryDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IReadOnlyList<JewelryConfigurationSummaryDto>>> GetRecent(
+        [FromQuery] int take = 5,
+        CancellationToken ct = default)
+    {
+        var userId = User.GetCurrentUserId();
+        var items = await _configurationService.GetRecentForUserAsync(userId, take, ct);
+        return Ok(items);
+    }
+
+    /// <summary>
     /// Получить пагинированный список конфигураций текущего пользователя
     /// </summary>
     /// <param name="pagination">Параметры пагинации (page, pageSize)</param>

@@ -48,4 +48,12 @@ public interface IConfigurationService
         Guid userId,
         Guid configurationId,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// Получить последние конфигурации пользователя
+    /// </summary>
+    Task<IReadOnlyList<JewelryConfigurationSummaryDto>> GetRecentForUserAsync(
+        Guid userId,
+        int take,
+        CancellationToken ct = default);
 }

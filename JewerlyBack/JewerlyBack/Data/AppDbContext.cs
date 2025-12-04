@@ -21,6 +21,7 @@ public class AppDbContext : DbContext
     public DbSet<UploadedAsset> UploadedAssets { get; set; }
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
+    public DbSet<AiPreviewJob> AiPreviewJobs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -357,6 +358,53 @@ public class AppDbContext : DbContext
         });
 
         // ========================================
+        // AiPreviewJob
+        // ========================================
+        modelBuilder.Entity<AiPreviewJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.ConfigurationId)
+                .IsRequired();
+
+            entity.Property(e => e.Type)
+                .IsRequired();
+
+            entity.Property(e => e.Status)
+                .IsRequired();
+
+            entity.Property(e => e.Prompt)
+                .HasMaxLength(2000);
+
+            entity.Property(e => e.ErrorMessage)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.SingleImageUrl)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.FramesJson)
+                .HasMaxLength(10000); // JSON массив с URL фреймов
+
+            entity.Property(e => e.CreatedAtUtc)
+                .IsRequired();
+
+            entity.Property(e => e.UpdatedAtUtc)
+                .IsRequired();
+
+            // Связь с конфигурацией
+            entity.HasOne(e => e.Configuration)
+                .WithMany()
+                .HasForeignKey(e => e.ConfigurationId)
+                .OnDelete(DeleteBehavior.Cascade); // При удалении конфигурации удаляем и jobs
+
+            // Индекс для быстрого поиска по конфигурации
+            entity.HasIndex(e => e.ConfigurationId);
+
+            // Индекс для быстрого поиска по статусу (для фоновой обработки)
+            entity.HasIndex(e => e.Status);
+        });
+
+        // ========================================
         // SEED DATA
         // ========================================
 
@@ -471,11 +519,12 @@ public class AppDbContext : DbContext
 
         // Материалы
         modelBuilder.Entity<Material>().HasData(
+            // Yellow Gold
             new Material
             {
                 Id = 1,
-                Code = "gold_585_yellow",
-                Name = "Золото 585 жёлтое",
+                Code = "gold_14k_yellow",
+                Name = "14K Yellow Gold",
                 MetalType = "gold",
                 Karat = 14,
                 ColorHex = "#FFD700",
@@ -485,34 +534,94 @@ public class AppDbContext : DbContext
             new Material
             {
                 Id = 2,
-                Code = "gold_585_white",
-                Name = "Золото 585 белое",
+                Code = "gold_18k_yellow",
+                Name = "18K Yellow Gold",
                 MetalType = "gold",
-                Karat = 14,
-                ColorHex = "#E5E4E2",
-                PriceFactor = 1.1m,
+                Karat = 18,
+                ColorHex = "#FFDF00",
+                PriceFactor = 1.2m,
                 IsActive = true
             },
+            // White Gold
             new Material
             {
                 Id = 3,
-                Code = "silver_925",
-                Name = "Серебро 925",
-                MetalType = "silver",
-                Karat = null,
-                ColorHex = "#C0C0C0",
-                PriceFactor = 0.3m,
+                Code = "gold_14k_white",
+                Name = "14K White Gold",
+                MetalType = "gold",
+                Karat = 14,
+                ColorHex = "#E5E4E2",
+                PriceFactor = 1.05m,
                 IsActive = true
             },
             new Material
             {
                 Id = 4,
+                Code = "gold_18k_white",
+                Name = "18K White Gold",
+                MetalType = "gold",
+                Karat = 18,
+                ColorHex = "#E8E8E8",
+                PriceFactor = 1.25m,
+                IsActive = true
+            },
+            // Rose Gold
+            new Material
+            {
+                Id = 5,
+                Code = "gold_14k_rose",
+                Name = "14K Rose Gold",
+                MetalType = "gold",
+                Karat = 14,
+                ColorHex = "#B76E79",
+                PriceFactor = 1.05m,
+                IsActive = true
+            },
+            new Material
+            {
+                Id = 6,
+                Code = "gold_18k_rose",
+                Name = "18K Rose Gold",
+                MetalType = "gold",
+                Karat = 18,
+                ColorHex = "#C9A0A0",
+                PriceFactor = 1.25m,
+                IsActive = true
+            },
+            // Platinum
+            new Material
+            {
+                Id = 7,
                 Code = "platinum",
-                Name = "Платина",
+                Name = "Platinum",
                 MetalType = "platinum",
                 Karat = null,
                 ColorHex = "#E5E4E2",
-                PriceFactor = 2.5m,
+                PriceFactor = 1.4m,
+                IsActive = true
+            },
+            // Silver
+            new Material
+            {
+                Id = 8,
+                Code = "silver_925",
+                Name = "Sterling Silver 925",
+                MetalType = "silver",
+                Karat = null,
+                ColorHex = "#C0C0C0",
+                PriceFactor = 0.6m,
+                IsActive = true
+            },
+            // Titanium
+            new Material
+            {
+                Id = 9,
+                Code = "titanium",
+                Name = "Titanium",
+                MetalType = "titanium",
+                Karat = null,
+                ColorHex = "#878681",
+                PriceFactor = 0.8m,
                 IsActive = true
             }
         );
@@ -523,19 +632,272 @@ public class AppDbContext : DbContext
             {
                 Id = 1,
                 Code = "diamond",
-                Name = "Бриллиант",
-                Color = "Бесцветный",
-                DefaultPricePerCarat = 50000.0m,
+                Name = "Diamond",
+                Color = "Clear",
+                DefaultPricePerCarat = 5000.0m,
                 IsActive = true
             },
             new StoneType
             {
                 Id = 2,
                 Code = "sapphire",
-                Name = "Сапфир",
-                Color = "Синий",
-                DefaultPricePerCarat = 15000.0m,
+                Name = "Sapphire",
+                Color = "Blue",
+                DefaultPricePerCarat = 1500.0m,
                 IsActive = true
+            },
+            new StoneType
+            {
+                Id = 3,
+                Code = "ruby",
+                Name = "Ruby",
+                Color = "Red",
+                DefaultPricePerCarat = 1800.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 4,
+                Code = "emerald",
+                Name = "Emerald",
+                Color = "Green",
+                DefaultPricePerCarat = 2000.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 5,
+                Code = "moissanite",
+                Name = "Moissanite",
+                Color = "Clear",
+                DefaultPricePerCarat = 400.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 6,
+                Code = "topaz",
+                Name = "Topaz",
+                Color = "Blue",
+                DefaultPricePerCarat = 250.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 7,
+                Code = "amethyst",
+                Name = "Amethyst",
+                Color = "Purple",
+                DefaultPricePerCarat = 150.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 8,
+                Code = "citrine",
+                Name = "Citrine",
+                Color = "Yellow",
+                DefaultPricePerCarat = 180.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 9,
+                Code = "aquamarine",
+                Name = "Aquamarine",
+                Color = "Light Blue",
+                DefaultPricePerCarat = 300.0m,
+                IsActive = true
+            },
+            new StoneType
+            {
+                Id = 10,
+                Code = "garnet",
+                Name = "Garnet",
+                Color = "Deep Red",
+                DefaultPricePerCarat = 200.0m,
+                IsActive = true
+            }
+        );
+
+        // Базовые модели ювелирных изделий
+        modelBuilder.Entity<JewelryBaseModel>().HasData(
+            // Rings (CategoryId = 1)
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
+                CategoryId = 1,
+                Code = "ring_solitaire_classic",
+                Name = "Classic Solitaire Ring",
+                Description = "Elegant thin band with a single center stone in prong setting",
+                BasePrice = 500.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"defaultRingSize\":16.5,\"bandWidth\":2.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000002"),
+                CategoryId = 1,
+                Code = "ring_engagement_halo",
+                Name = "Halo Engagement Ring",
+                Description = "Center stone surrounded by a halo of smaller accent stones",
+                BasePrice = 800.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"defaultRingSize\":16.5,\"bandWidth\":2.5}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000003"),
+                CategoryId = 1,
+                Code = "ring_wide_band",
+                Name = "Wide Band Ring",
+                Description = "Modern wide band with smooth polished surface",
+                BasePrice = 400.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"defaultRingSize\":17.0,\"bandWidth\":5.0}"
+            },
+
+            // Earrings (CategoryId = 2)
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("20000000-0000-0000-0000-000000000001"),
+                CategoryId = 2,
+                Code = "earring_stud_classic",
+                Name = "Classic Stud Earrings",
+                Description = "Minimalist studs with a single gemstone",
+                BasePrice = 300.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"stoneSize\":5.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("20000000-0000-0000-0000-000000000002"),
+                CategoryId = 2,
+                Code = "earring_hoop_medium",
+                Name = "Medium Hoop Earrings",
+                Description = "Classic round hoops, medium size",
+                BasePrice = 250.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"diameter\":25.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("20000000-0000-0000-0000-000000000003"),
+                CategoryId = 2,
+                Code = "earring_drop_elegant",
+                Name = "Elegant Drop Earrings",
+                Description = "Graceful drop earrings with dangling gemstone",
+                BasePrice = 450.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"length\":35.0}"
+            },
+
+            // Pendants (CategoryId = 3)
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("30000000-0000-0000-0000-000000000001"),
+                CategoryId = 3,
+                Code = "pendant_round_simple",
+                Name = "Round Pendant",
+                Description = "Simple round pendant with center stone",
+                BasePrice = 200.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"diameter\":15.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("30000000-0000-0000-0000-000000000002"),
+                CategoryId = 3,
+                Code = "pendant_heart_classic",
+                Name = "Heart Pendant",
+                Description = "Classic heart-shaped pendant",
+                BasePrice = 220.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"width\":12.0,\"height\":12.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("30000000-0000-0000-0000-000000000003"),
+                CategoryId = 3,
+                Code = "pendant_solitaire",
+                Name = "Solitaire Pendant",
+                Description = "Single stone pendant in prong setting",
+                BasePrice = 280.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"stoneSize\":6.0}"
+            },
+
+            // Necklaces (CategoryId = 4)
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("40000000-0000-0000-0000-000000000001"),
+                CategoryId = 4,
+                Code = "necklace_cable_chain",
+                Name = "Cable Chain Necklace",
+                Description = "Classic cable chain necklace",
+                BasePrice = 350.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"length\":45.0,\"linkSize\":3.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("40000000-0000-0000-0000-000000000002"),
+                CategoryId = 4,
+                Code = "necklace_pendant_base",
+                Name = "Pendant Necklace Base",
+                Description = "Delicate chain designed for pendants",
+                BasePrice = 180.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"length\":42.0,\"linkSize\":2.0}"
+            },
+
+            // Bracelets (CategoryId = 5)
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("50000000-0000-0000-0000-000000000001"),
+                CategoryId = 5,
+                Code = "bracelet_chain_classic",
+                Name = "Classic Chain Bracelet",
+                Description = "Simple elegant chain bracelet",
+                BasePrice = 280.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"length\":18.0,\"linkSize\":3.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("50000000-0000-0000-0000-000000000002"),
+                CategoryId = 5,
+                Code = "bracelet_bangle_simple",
+                Name = "Simple Bangle Bracelet",
+                Description = "Smooth round bangle bracelet",
+                BasePrice = 320.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"diameter\":65.0,\"width\":4.0}"
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("50000000-0000-0000-0000-000000000003"),
+                CategoryId = 5,
+                Code = "bracelet_tennis",
+                Name = "Tennis Bracelet",
+                Description = "Classic tennis bracelet with line of stones",
+                BasePrice = 950.0m,
+                IsActive = true,
+                PreviewImageUrl = null,
+                MetadataJson = "{\"length\":18.0,\"stoneCount\":20}"
             }
         );
     }
