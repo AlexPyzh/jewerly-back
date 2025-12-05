@@ -44,8 +44,7 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
             ContentType = contentType,
             // Для публичного бакета. После перехода на приватный — убрать.
             // TODO: Убрать CannedACL после настройки приватного бакета
-            CannedACL = S3CannedACL.PublicRead,
-            DisablePayloadSigning = true // Требуется для некоторых S3-совместимых хостингов
+            CannedACL = S3CannedACL.PublicRead
         };
 
         try
@@ -61,8 +60,8 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
         catch (AmazonS3Exception ex)
         {
             _logger.LogError(ex,
-                "S3 upload failed: {FileKey}, Error: {ErrorCode}, Message: {Message}",
-                fileKey, ex.ErrorCode, ex.Message);
+                "S3 upload failed: {FileKey}, Error: {ErrorCode}, StatusCode: {StatusCode}, Message: {Message}, RequestId: {RequestId}",
+                fileKey, ex.ErrorCode, ex.StatusCode, ex.Message, ex.RequestId);
             throw;
         }
     }
@@ -159,7 +158,9 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
 
         // Формат URL для Contabo Object Storage:
         // https://usc1.contabostorage.com/bucketId:bucketName/fileKey
-        var url = $"{_options.ServiceUrl.TrimEnd('/')}/{_options.BucketName}/{fileKey}";
+        // Для публичных URL нужно использовать полный bucket ID
+        var fullBucketName = "b6dff85a0bf0428f9df1725ed460985b:jewbucket";
+        var url = $"{_options.ServiceUrl.TrimEnd('/')}/{fullBucketName}/{fileKey}";
 
         return url;
     }

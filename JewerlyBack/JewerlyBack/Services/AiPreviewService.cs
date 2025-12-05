@@ -28,6 +28,15 @@ public class AiPreviewService : IAiPreviewService
         Guid userId,
         CancellationToken ct = default)
     {
+        // Валидация типа превью
+        if (!Enum.IsDefined(typeof(AiPreviewType), request.Type))
+        {
+            _logger.LogWarning(
+                "Invalid preview type {Type} provided for configuration {ConfigurationId}",
+                request.Type, request.ConfigurationId);
+            throw new ArgumentException($"Invalid preview type: {request.Type}", nameof(request.Type));
+        }
+
         _logger.LogInformation(
             "Creating AI preview job for configuration {ConfigurationId}, user {UserId}, type {Type}",
             request.ConfigurationId, userId, request.Type);

@@ -332,6 +332,8 @@ builder.Services.AddSingleton<IAmazonS3>(_ =>
         ForcePathStyle = s3Options.ForcePathStyle,
         UseHttp = false
     };
+
+    // Используем прямую передачу учетных данных
     return new AmazonS3Client(s3Options.AccessKey, s3Options.SecretKey, config);
 });
 
@@ -366,16 +368,6 @@ builder.Services
         "OPENAI_API_KEY must be provided. Set it as an environment variable.")
     .ValidateOnStart();
 
-// Регистрация HttpClient для OpenAiImageProvider
-builder.Services.AddHttpClient<OpenAiImageProvider>((sp, client) =>
-{
-    var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
-    client.BaseAddress = new Uri(options.BaseUrl);
-    client.DefaultRequestHeaders.Authorization =
-        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
-    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
-});
-
 // ========================================
 // Application Services
 // ========================================
@@ -389,7 +381,17 @@ builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAiPreviewService, AiPreviewService>();
 
 // AI Services
-builder.Services.AddScoped<IAiImageProvider, OpenAiImageProvider>();
+// Регистрация HttpClient для OpenAiImageProvider с интерфейсом IAiImageProvider
+builder.Services.AddHttpClient<IAiImageProvider, OpenAiImageProvider>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    // Ensure BaseUrl ends with / for proper relative URL resolution
+    var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
+    client.BaseAddress = new Uri(baseUrl);
+    client.DefaultRequestHeaders.Authorization =
+        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
 builder.Services.AddScoped<IAiPromptBuilder, AiPromptBuilder>();
 
 // Background Services
@@ -431,7 +433,94 @@ if (app.Environment.IsDevelopment())
         options.DocumentTitle = "Jewerly API - Swagger UI";
         options.DisplayRequestDuration();
         options.EnableTryItOutByDefault();
+
+        // Автоматическая авторизация для Development режима
+        options.InjectJavascript("/swagger-auto-auth.js");
     });
+
+    // Добавляем endpoint для custom JavaScript
+    app.MapGet("/swagger-auto-auth.js", () =>
+    {
+        var js = @"
+window.addEventListener('load', function() {
+    // Функция для автоматической авторизации
+    async function autoAuth() {
+        try {
+            console.log('[Swagger Auto-Auth] Fetching dev token...');
+
+            // Получаем токен от dev endpoint
+            const response = await fetch('/api/account/dev-token');
+
+            if (!response.ok) {
+                console.warn('[Swagger Auto-Auth] Dev token endpoint returned:', response.status);
+                return;
+            }
+
+            const data = await response.json();
+            const token = data.token || data.accessToken;
+
+            if (!token) {
+                console.warn('[Swagger Auto-Auth] No token in response');
+                return;
+            }
+
+            console.log('[Swagger Auto-Auth] Token received, authorizing...');
+
+            // Ждем, пока Swagger UI инициализируется
+            let attempts = 0;
+            const maxAttempts = 50;
+
+            const authInterval = setInterval(() => {
+                attempts++;
+
+                if (window.ui && window.ui.authActions) {
+                    clearInterval(authInterval);
+
+                    // Авторизуемся
+                    window.ui.authActions.authorize({
+                        Bearer: {
+                            name: 'Bearer',
+                            schema: {
+                                type: 'apiKey',
+                                in: 'header',
+                                name: 'Authorization',
+                                description: ''
+                            },
+                            value: token
+                        }
+                    });
+
+                    console.log('[Swagger Auto-Auth] ✅ Automatically authorized as user2@example.com');
+
+                    // Показываем уведомление пользователю
+                    setTimeout(() => {
+                        const authButton = document.querySelector('.btn.authorize');
+                        if (authButton) {
+                            authButton.style.backgroundColor = '#4caf50';
+                            authButton.style.borderColor = '#4caf50';
+                            setTimeout(() => {
+                                authButton.style.backgroundColor = '';
+                                authButton.style.borderColor = '';
+                            }, 2000);
+                        }
+                    }, 500);
+                } else if (attempts >= maxAttempts) {
+                    clearInterval(authInterval);
+                    console.warn('[Swagger Auto-Auth] Failed to find Swagger UI instance');
+                }
+            }, 100);
+
+        } catch (error) {
+            console.error('[Swagger Auto-Auth] Error:', error);
+        }
+    }
+
+    // Запускаем автоматическую авторизацию
+    autoAuth();
+});
+";
+        return Results.Content(js, "application/javascript");
+    }).ExcludeFromDescription();
 }
 else
 {

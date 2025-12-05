@@ -308,6 +308,54 @@ public class AccountController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// [ТОЛЬКО DEV] Получить токен для тестового пользователя
+    /// </summary>
+    /// <param name="ct">Токен отмены</param>
+    /// <returns>AuthResponse с JWT токеном для user2@example.com</returns>
+    /// <remarks>
+    /// ВАЖНО: Этот endpoint доступен ТОЛЬКО в Development окружении!
+    /// В Production он возвращает 404.
+    ///
+    /// Используется для автоматической авторизации в Swagger UI.
+    /// </remarks>
+    [HttpGet("dev-token")]
+    [AllowAnonymous]
+    [ApiExplorerSettings(IgnoreApi = true)] // Скрыть из Swagger документации
+    [ProducesResponseType(typeof(AuthResponse), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<AuthResponse>> GetDevToken(CancellationToken ct)
+    {
+#if !DEBUG
+        return NotFound();
+#else
+        var environment = HttpContext.RequestServices.GetRequiredService<IWebHostEnvironment>();
+
+        if (!environment.IsDevelopment())
+        {
+            return NotFound();
+        }
+
+        // Автоматический логин для тестового пользователя
+        var result = await _accountService.LoginAsync(
+            new LoginRequest
+            {
+                Email = "user2@example.com",
+                Password = "user2@example.com"
+            },
+            ct);
+
+        if (result is null)
+        {
+            return Unauthorized(new { message = "Dev user not found. Please ensure user2@example.com exists in the database." });
+        }
+
+        _logger.LogInformation("Dev token generated for user2@example.com");
+
+        return Ok(result);
+#endif
+    }
+
     // TODO: Добавить endpoints:
     // - POST /api/account/refresh — обновление access токена через refresh token
     // - POST /api/account/logout — инвалидация refresh токена

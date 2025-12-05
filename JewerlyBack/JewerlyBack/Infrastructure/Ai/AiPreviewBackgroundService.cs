@@ -103,8 +103,9 @@ public sealed class AiPreviewBackgroundService : BackgroundService
         IAiPromptBuilder promptBuilder,
         CancellationToken stoppingToken)
     {
-        _logger.LogInformation("Processing AI preview job {JobId} for configuration {ConfigurationId}",
-            job.Id, job.ConfigurationId);
+        _logger.LogInformation(
+            "Processing AI preview job {JobId} (Type={Type}, ConfigurationId={ConfigurationId})",
+            job.Id, job.Type, job.ConfigurationId);
 
         try
         {
@@ -133,12 +134,10 @@ public sealed class AiPreviewBackgroundService : BackgroundService
 
             _logger.LogInformation("Generated prompt for job {JobId}: {Prompt}", job.Id, prompt);
 
-            // 4. Генерируем изображение
-            string imageUrl;
-
+            // 4. Генерируем изображение в зависимости от типа
             if (job.Type == AiPreviewType.SingleImage)
             {
-                imageUrl = await aiProvider.GenerateSinglePreviewAsync(
+                var imageUrl = await aiProvider.GenerateSinglePreviewAsync(
                     prompt,
                     job.ConfigurationId,
                     job.Id,
@@ -147,18 +146,41 @@ public sealed class AiPreviewBackgroundService : BackgroundService
                 // 5. Обновляем задание как успешно выполненное
                 job.Status = AiPreviewStatus.Completed;
                 job.SingleImageUrl = imageUrl;
+                job.FramesJson = null; // Для SingleImage не нужны кадры
                 job.Prompt = prompt;
                 job.UpdatedAtUtc = DateTimeOffset.UtcNow;
 
                 _logger.LogInformation(
-                    "AI preview job {JobId} completed successfully. Image URL: {Url}",
-                    job.Id, imageUrl);
+                    "Completed AI preview job {JobId} (Type={Type}). Image URL: {Url}",
+                    job.Id, job.Type, imageUrl);
+            }
+            else if (job.Type == AiPreviewType.Preview360)
+            {
+                const int frameCount = 12; // Можно сделать конфигурируемым в будущем
+
+                var frameUrls = await aiProvider.Generate360PreviewAsync(
+                    prompt,
+                    job.ConfigurationId,
+                    job.Id,
+                    frameCount,
+                    stoppingToken);
+
+                // 5. Обновляем задание как успешно выполненное
+                job.Status = AiPreviewStatus.Completed;
+                job.FramesJson = System.Text.Json.JsonSerializer.Serialize(frameUrls);
+                // Первый кадр используется как превью
+                job.SingleImageUrl = frameUrls.FirstOrDefault();
+                job.Prompt = prompt;
+                job.UpdatedAtUtc = DateTimeOffset.UtcNow;
+
+                _logger.LogInformation(
+                    "Completed AI preview job {JobId} (Type={Type}). Generated {FrameCount} frames",
+                    job.Id, job.Type, frameUrls.Count);
             }
             else
             {
-                // TODO: Реализовать поддержку Preview360 в будущем
                 throw new NotImplementedException(
-                    $"AI preview type {job.Type} is not supported yet. Only SingleImage is supported.");
+                    $"AI preview type {job.Type} is not supported");
             }
 
             await db.SaveChangesAsync(stoppingToken);
@@ -166,8 +188,8 @@ public sealed class AiPreviewBackgroundService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogError(ex,
-                "Failed to process AI preview job {JobId} for configuration {ConfigurationId}",
-                job.Id, job.ConfigurationId);
+                "Failed to process AI preview job {JobId} (Type={Type}, ConfigurationId={ConfigurationId})",
+                job.Id, job.Type, job.ConfigurationId);
 
             // Обновляем задание как проваленное
             try
