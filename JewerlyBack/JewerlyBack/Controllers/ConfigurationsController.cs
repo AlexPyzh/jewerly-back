@@ -105,14 +105,23 @@ public class ConfigurationsController : ControllerBase
     /// </summary>
     /// <param name="request">Данные для создания конфигурации</param>
     /// <param name="ct">Токен отмены</param>
+    /// <remarks>
+    /// Позволяет создавать конфигурации как для авторизованных, так и для анонимных пользователей (для AI preview).
+    /// Для анонимных пользователей UserId будет null.
+    /// </remarks>
     [HttpPost]
+    [AllowAnonymous]
     [ProducesResponseType(typeof(CreateConfigurationResponse), StatusCodes.Status201Created)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     public async Task<ActionResult<CreateConfigurationResponse>> CreateConfiguration(
         [FromBody] JewelryConfigurationCreateRequest request,
         CancellationToken ct)
     {
-        var userId = User.GetCurrentUserId();
+        Guid? userId = User.Identity?.IsAuthenticated == true ? User.GetCurrentUserId() : null;
+
+        _logger.LogInformation(
+            "📥 CreateConfiguration: userId={UserId}, baseModelId={BaseModelId}, materialId={MaterialId}, configJson={ConfigJson}",
+            userId, request.BaseModelId, request.MaterialId, request.ConfigJson);
 
         try
         {
@@ -142,7 +151,12 @@ public class ConfigurationsController : ControllerBase
     /// <param name="id">ID конфигурации</param>
     /// <param name="request">Данные для обновления</param>
     /// <param name="ct">Токен отмены</param>
+    /// <remarks>
+    /// Позволяет обновлять конфигурации как для авторизованных, так и для анонимных пользователей (для AI preview).
+    /// Для анонимных пользователей UserId будет null.
+    /// </remarks>
     [HttpPut("{id}")]
+    [AllowAnonymous]
     [ProducesResponseType(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
@@ -151,7 +165,7 @@ public class ConfigurationsController : ControllerBase
         [FromBody] JewelryConfigurationUpdateRequest request,
         CancellationToken ct)
     {
-        var userId = User.GetCurrentUserId();
+        Guid? userId = User.Identity?.IsAuthenticated == true ? User.GetCurrentUserId() : null;
 
         try
         {

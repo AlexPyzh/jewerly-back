@@ -160,28 +160,40 @@ public class ConfigurationService : IConfigurationService
     }
 
     public async Task<Guid> CreateConfigurationAsync(
-        Guid userId,
+        Guid? userId,
         JewelryConfigurationCreateRequest request,
         CancellationToken ct = default)
     {
-        _logger.LogInformation("Creating configuration for user {UserId}", userId);
+        _logger.LogInformation(
+            "Creating configuration for user {UserId}, baseModelId={BaseModelId}, materialId={MaterialId}",
+            userId, request.BaseModelId, request.MaterialId);
 
-        // Проверка существования базовой модели
-        var baseModelExists = await _context.JewelryBaseModels
-            .AnyAsync(m => m.Id == request.BaseModelId, ct);
-
-        if (!baseModelExists)
+        try
         {
-            throw new ArgumentException($"Base model {request.BaseModelId} not found");
+            // Проверка существования базовой модели
+            var baseModelExists = await _context.JewelryBaseModels
+                .AnyAsync(m => m.Id == request.BaseModelId, ct);
+
+            if (!baseModelExists)
+            {
+                _logger.LogWarning("Base model {BaseModelId} not found in database", request.BaseModelId);
+                throw new ArgumentException($"Base model {request.BaseModelId} not found");
+            }
+
+            // Проверка существования материала
+            var materialExists = await _context.Materials
+                .AnyAsync(m => m.Id == request.MaterialId, ct);
+
+            if (!materialExists)
+            {
+                _logger.LogWarning("Material {MaterialId} not found in database", request.MaterialId);
+                throw new ArgumentException($"Material {request.MaterialId} not found");
+            }
         }
-
-        // Проверка существования материала
-        var materialExists = await _context.Materials
-            .AnyAsync(m => m.Id == request.MaterialId, ct);
-
-        if (!materialExists)
+        catch (Exception ex) when (ex is not ArgumentException)
         {
-            throw new ArgumentException($"Material {request.MaterialId} not found");
+            _logger.LogError(ex, "Error during validation in CreateConfigurationAsync");
+            throw;
         }
 
         var now = DateTimeOffset.UtcNow;
@@ -221,7 +233,7 @@ public class ConfigurationService : IConfigurationService
     }
 
     public async Task<bool> UpdateConfigurationAsync(
-        Guid userId,
+        Guid? userId,
         Guid configurationId,
         JewelryConfigurationUpdateRequest request,
         CancellationToken ct = default)

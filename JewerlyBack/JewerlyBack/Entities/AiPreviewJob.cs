@@ -16,6 +16,16 @@ public class AiPreviewJob
     public Guid ConfigurationId { get; set; }
 
     /// <summary>
+    /// ID пользователя (null для гостей)
+    /// </summary>
+    public Guid? UserId { get; set; }
+
+    /// <summary>
+    /// ID анонимного клиента (заполняется фронтом для гостей)
+    /// </summary>
+    public string? GuestClientId { get; set; }
+
+    /// <summary>
     /// Тип превью (SingleImage или Preview360)
     /// </summary>
     public AiPreviewType Type { get; set; }

@@ -28,7 +28,7 @@ public interface IConfigurationService
     /// Создать новую конфигурацию
     /// </summary>
     Task<Guid> CreateConfigurationAsync(
-        Guid userId,
+        Guid? userId,
         JewelryConfigurationCreateRequest request,
         CancellationToken ct = default);
 
@@ -36,7 +36,7 @@ public interface IConfigurationService
     /// Обновить существующую конфигурацию
     /// </summary>
     Task<bool> UpdateConfigurationAsync(
-        Guid userId,
+        Guid? userId,
         Guid configurationId,
         JewelryConfigurationUpdateRequest request,
         CancellationToken ct = default);

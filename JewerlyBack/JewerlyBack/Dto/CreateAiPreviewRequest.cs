@@ -16,4 +16,10 @@ public class CreateAiPreviewRequest
     /// Тип превью (SingleImage = 0 или Preview360 = 1)
     /// </summary>
     public required AiPreviewType Type { get; set; }
+
+    /// <summary>
+    /// ID анонимного клиента (для гостей)
+    /// Должен быть заполнен, если пользователь не авторизован
+    /// </summary>
+    public string? GuestClientId { get; set; }
 }

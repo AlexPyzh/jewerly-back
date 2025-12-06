@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using JewerlyBack.Infrastructure.Exceptions;
 
 namespace JewerlyBack.Infrastructure.Middleware;
 
@@ -54,14 +55,16 @@ public class GlobalExceptionMiddleware
             context.Request.Method);
 
         // Определяем статус код и сообщение в зависимости от типа исключения
-        var (statusCode, message) = exception switch
+        var (statusCode, message, errorCode) = exception switch
         {
-            ArgumentException => (HttpStatusCode.BadRequest, exception.Message),
-            InvalidOperationException => (HttpStatusCode.BadRequest, exception.Message),
-            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized"),
-            KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found"),
-            OperationCanceledException => (HttpStatusCode.BadRequest, "Request was cancelled"),
-            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred")
+            AiLimitExceededException aiLimitEx =>
+                ((HttpStatusCode)429, "Free AI preview limit reached. Please sign up to continue.", "GuestAiLimitExceeded"),
+            ArgumentException => (HttpStatusCode.BadRequest, exception.Message, "BadRequest"),
+            InvalidOperationException => (HttpStatusCode.BadRequest, exception.Message, "InvalidOperation"),
+            UnauthorizedAccessException => (HttpStatusCode.Unauthorized, "Unauthorized", "Unauthorized"),
+            KeyNotFoundException => (HttpStatusCode.NotFound, "Resource not found", "NotFound"),
+            OperationCanceledException => (HttpStatusCode.BadRequest, "Request was cancelled", "RequestCancelled"),
+            _ => (HttpStatusCode.InternalServerError, "An unexpected error occurred", "InternalError")
         };
 
         context.Response.ContentType = "application/json";
@@ -70,6 +73,7 @@ public class GlobalExceptionMiddleware
         var response = new ErrorResponse
         {
             Status = (int)statusCode,
+            Error = errorCode,
             Message = message,
             CorrelationId = correlationId,
             Timestamp = DateTimeOffset.UtcNow
@@ -99,6 +103,11 @@ public class ErrorResponse
     /// HTTP статус код
     /// </summary>
     public int Status { get; set; }
+
+    /// <summary>
+    /// Код ошибки для программной обработки на фронте
+    /// </summary>
+    public string Error { get; set; } = string.Empty;
 
     /// <summary>
     /// Сообщение об ошибке

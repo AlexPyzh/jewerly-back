@@ -367,6 +367,13 @@ public class AppDbContext : DbContext
             entity.Property(e => e.ConfigurationId)
                 .IsRequired();
 
+            entity.Property(e => e.UserId)
+                .IsRequired(false); // Nullable для гостей
+
+            entity.Property(e => e.GuestClientId)
+                .HasMaxLength(100)
+                .IsRequired(false); // Nullable, заполняется только для гостей
+
             entity.Property(e => e.Type)
                 .IsRequired();
 
@@ -402,6 +409,10 @@ public class AppDbContext : DbContext
 
             // Индекс для быстрого поиска по статусу (для фоновой обработки)
             entity.HasIndex(e => e.Status);
+
+            // Композитный индекс для поиска гостевых заданий (GuestClientId + Status)
+            entity.HasIndex(e => new { e.GuestClientId, e.Status })
+                .HasFilter("\"GuestClientId\" IS NOT NULL");
         });
 
         // ========================================

@@ -3,7 +3,7 @@ namespace JewerlyBack.Dto;
 public class JewelryConfigurationDetailDto
 {
     public Guid Id { get; set; }
-    public Guid UserId { get; set; }
+    public Guid? UserId { get; set; }
     public Guid BaseModelId { get; set; }
     public int MaterialId { get; set; }
     public string? Name { get; set; }

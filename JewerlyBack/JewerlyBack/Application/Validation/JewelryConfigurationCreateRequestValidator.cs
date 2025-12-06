@@ -26,12 +26,11 @@ public class JewelryConfigurationCreateRequestValidator : AbstractValidator<Jewe
             .WithMessage("Name must not exceed 500 characters")
             .When(x => !string.IsNullOrEmpty(x.Name));
 
-        // ConfigJson (опционально, но если передан - проверяем)
+        // ConfigJson (опционально, но если передан - проверяем длину)
+        // Разрешаем пустые JSON объекты "{}" и null
         RuleFor(x => x.ConfigJson)
-            .NotEmpty()
-            .WithMessage("ConfigJson must not be empty if provided")
             .MaximumLength(10000)
             .WithMessage("ConfigJson must not exceed 10000 characters")
-            .When(x => x.ConfigJson != null);
+            .When(x => !string.IsNullOrEmpty(x.ConfigJson));
     }
 }
