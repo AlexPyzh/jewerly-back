@@ -6,6 +6,7 @@ public class JewelryCategory
     public required string Code { get; set; }
     public required string Name { get; set; }
     public string? Description { get; set; }
+    public string? AiCategoryDescription { get; set; }
     public bool IsActive { get; set; }
 
     // Навигационные свойства

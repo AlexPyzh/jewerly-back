@@ -95,6 +95,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Description)
                 .HasMaxLength(1000);
 
+            entity.Property(e => e.AiCategoryDescription)
+                .HasColumnType("text");
+
             entity.HasIndex(e => e.Code)
                 .IsUnique();
 
@@ -123,6 +126,9 @@ public class AppDbContext : DbContext
 
             entity.Property(e => e.Description)
                 .HasMaxLength(2000);
+
+            entity.Property(e => e.AiDescription)
+                .HasColumnType("text");
 
             entity.Property(e => e.PreviewImageUrl)
                 .HasMaxLength(500);
@@ -421,6 +427,7 @@ public class AppDbContext : DbContext
 
         // Категории ювелирных изделий
         // Фиксированные Id и Code для стабильного API и фронтенда
+        // Канонический список соответствует файлам в lib/assets/categories
         modelBuilder.Entity<JewelryCategory>().HasData(
             new JewelryCategory
             {
@@ -428,6 +435,7 @@ public class AppDbContext : DbContext
                 Code = "rings",
                 Name = "Rings",
                 Description = "Engagement and decorative rings",
+                AiCategoryDescription = "A ring is a circular band worn on the finger, ranging from simple bands to elaborate designs with stones. Rings can be engagement rings with prominent center stones, wedding bands, fashion rings, or signet rings. They are designed to encircle the finger smoothly and can feature various widths, profiles, and decorative elements.",
                 IsActive = true
             },
             new JewelryCategory
@@ -436,6 +444,7 @@ public class AppDbContext : DbContext
                 Code = "earrings",
                 Name = "Earrings",
                 Description = "Various types of earrings",
+                AiCategoryDescription = "Earrings are jewelry pieces worn on or hanging from the earlobe or ear cartilage. They include studs that sit close to the ear, hoops that form circular shapes, drop earrings that dangle below the lobe, and more elaborate chandelier styles. Earrings are typically sold and worn as matching pairs.",
                 IsActive = true
             },
             new JewelryCategory
@@ -444,6 +453,7 @@ public class AppDbContext : DbContext
                 Code = "pendants",
                 Name = "Pendants",
                 Description = "Pendants and charms",
+                AiCategoryDescription = "A pendant is a decorative element designed to hang from a chain or cord around the neck. Pendants can be geometric shapes, symbols, stones in settings, or representational forms. They typically feature a bail or loop at the top for attachment and serve as the focal point of a necklace.",
                 IsActive = true
             },
             new JewelryCategory
@@ -452,6 +462,7 @@ public class AppDbContext : DbContext
                 Code = "necklaces",
                 Name = "Necklaces",
                 Description = "Statement and delicate necklaces",
+                AiCategoryDescription = "A necklace is a complete piece of jewelry that encircles the neck, including both the chain or structure and any decorative elements. Necklaces can be simple chains, tennis necklaces with continuous stones, chokers that sit high on the neck, or statement pieces with integrated pendants or decorative sections.",
                 IsActive = true
             },
             new JewelryCategory
@@ -460,6 +471,7 @@ public class AppDbContext : DbContext
                 Code = "bracelets",
                 Name = "Bracelets",
                 Description = "Bangles and chain bracelets",
+                AiCategoryDescription = "A bracelet is jewelry worn around the wrist, either as a flexible chain with a clasp or as a rigid bangle that slips over the hand. Bracelets can be delicate chains, tennis bracelets with continuous stones, charm bracelets with dangling elements, or solid cuffs and bangles.",
                 IsActive = true
             },
             new JewelryCategory
@@ -468,6 +480,7 @@ public class AppDbContext : DbContext
                 Code = "chains",
                 Name = "Chains",
                 Description = "Necklace and bracelet chains",
+                AiCategoryDescription = "A chain is a flexible series of connected metal links forming a continuous strand. Chains are worn as standalone jewelry or used as the foundation for pendants. Common styles include cable chains with round links, curb chains with flat links, rope chains with twisted construction, and box chains with square links.",
                 IsActive = true
             },
             new JewelryCategory
@@ -476,6 +489,7 @@ public class AppDbContext : DbContext
                 Code = "brooches",
                 Name = "Brooches",
                 Description = "Decorative brooches and pins",
+                AiCategoryDescription = "A brooch is a decorative pin with a clasp mechanism on the back, designed to attach to clothing or fabric. Brooches can be floral designs, geometric shapes, animal figures, or abstract forms. They sit flat against fabric and serve as visible decorative accents on lapels, collars, or other garment areas.",
                 IsActive = true
             },
             new JewelryCategory
@@ -484,7 +498,8 @@ public class AppDbContext : DbContext
                 Code = "cufflinks",
                 Name = "Cufflinks",
                 Description = "Cufflinks and tie accessories",
-                IsActive = true
+                AiCategoryDescription = "Cufflinks are pairs of decorative fasteners used to secure the cuffs of dress shirts. They consist of a decorative front face connected to a backing mechanism that passes through buttonholes. Cufflinks are typically worn in formal settings and feature geometric, engraved, or stone-set designs.",
+                IsActive = false // Деактивировано - нет в каноническом списке
             },
             new JewelryCategory
             {
@@ -492,14 +507,16 @@ public class AppDbContext : DbContext
                 Code = "piercing",
                 Name = "Piercing",
                 Description = "Body piercing jewelry",
+                AiCategoryDescription = "Piercing jewelry is designed for body piercings beyond standard earlobe piercings, including cartilage, nose, lip, eyebrow, navel, and other locations. Common styles include labret studs with flat backs, small hoops, straight and curved barbells. These pieces are typically small, secure, and designed for continuous wear.",
                 IsActive = true
             },
             new JewelryCategory
             {
                 Id = 10,
                 Code = "hair_jewelry",
-                Name = "Hair Jewelry",
+                Name = "Hair jewelry",
                 Description = "Hair accessories and ornaments",
+                AiCategoryDescription = "Hair jewelry includes decorative accessories designed to adorn or secure hair. This includes hair pins with decorative tops, ornate hair combs with stones or metalwork, hair clips, and decorative barrettes. These pieces combine functionality with aesthetic appeal and are visible when worn in hairstyles.",
                 IsActive = true
             },
             new JewelryCategory
@@ -508,14 +525,16 @@ public class AppDbContext : DbContext
                 Code = "sets",
                 Name = "Sets",
                 Description = "Matching jewelry sets",
-                IsActive = true
+                AiCategoryDescription = "A jewelry set is a coordinated collection of matching pieces designed to be worn together, such as a necklace and earrings, or a ring and bracelet combination. Sets share design elements, materials, and style to create a cohesive look.",
+                IsActive = false // Деактивировано - нет в каноническом списке
             },
             new JewelryCategory
             {
                 Id = 12,
                 Code = "mens_jewelry",
-                Name = "Men's Jewelry",
+                Name = "Men's jewelry",
                 Description = "Jewelry designed for men",
+                AiCategoryDescription = "Men's jewelry includes pieces designed with masculine proportions and aesthetic, such as heavier chain necklaces, substantial link bracelets, bold signet rings, and cufflinks. These pieces typically feature larger dimensions, stronger lines, and more substantial construction compared to traditional jewelry.",
                 IsActive = true
             },
             new JewelryCategory
@@ -524,6 +543,16 @@ public class AppDbContext : DbContext
                 Code = "custom",
                 Name = "Custom Designs",
                 Description = "Unique custom-made jewelry",
+                AiCategoryDescription = "Custom jewelry encompasses unique, made-to-order pieces designed specifically for an individual customer. These pieces can be any category but are characterized by personalized design elements, custom proportions, unique stone arrangements, or special engravings that make them one-of-a-kind creations.",
+                IsActive = false // Деактивировано - нет в каноническом списке
+            },
+            new JewelryCategory
+            {
+                Id = 14,
+                Code = "cross_pendants",
+                Name = "Cross pendants",
+                Description = "Religious cross pendants and charms",
+                AiCategoryDescription = "Cross pendants are religious or symbolic jewelry pieces in the shape of a cross, designed to hang from a chain. They range from simple Latin crosses with clean lines to elaborate Orthodox crosses with multiple bars, and can be plain metal or embellished with stones. Cross pendants serve both as expressions of faith and as decorative jewelry.",
                 IsActive = true
             }
         );
@@ -731,184 +760,581 @@ public class AppDbContext : DbContext
             }
         );
 
+        // ========================================
         // Базовые модели ювелирных изделий
+        // Каноническ��й список для конструктора и AI конфигурации
+        // ========================================
         modelBuilder.Entity<JewelryBaseModel>().HasData(
-            // Rings (CategoryId = 1)
+            // ========================================
+            // RINGS (CategoryId = 1)
+            // ========================================
             new JewelryBaseModel
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000001"),
                 CategoryId = 1,
-                Code = "ring_solitaire_classic",
-                Name = "Classic Solitaire Ring",
-                Description = "Elegant thin band with a single center stone in prong setting",
-                BasePrice = 500.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"defaultRingSize\":16.5,\"bandWidth\":2.0}"
+                Code = "classic_solid_band",
+                Name = "Classic Solid Band",
+                Description = "Simple solid metal band with smooth polished surface, uniform width throughout",
+                AiDescription = "A classic solid band ring with a smooth, even surface and medium width, without any stones or engravings. The profile is gently rounded for everyday wear.",
+                BasePrice = 250.0m,
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000002"),
                 CategoryId = 1,
-                Code = "ring_engagement_halo",
-                Name = "Halo Engagement Ring",
-                Description = "Center stone surrounded by a halo of smaller accent stones",
-                BasePrice = 800.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"defaultRingSize\":16.5,\"bandWidth\":2.5}"
+                Code = "thin_band_single_stone",
+                Name = "Thin Band with Single Stone",
+                Description = "Delicate thin band featuring one small stone set in a minimal prong or bezel setting",
+                AiDescription = "A delicate thin band ring with a single round stone set at the top in a simple prong or bezel setting, emphasizing minimalism and lightness.",
+                BasePrice = 400.0m,
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000003"),
                 CategoryId = 1,
-                Code = "ring_wide_band",
-                Name = "Wide Band Ring",
-                Description = "Modern wide band with smooth polished surface",
-                BasePrice = 400.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"defaultRingSize\":17.0,\"bandWidth\":5.0}"
+                Code = "solitaire_engagement_ring",
+                Name = "Solitaire Engagement Ring",
+                Description = "Classic engagement ring with a prominent center stone elevated in a four or six-prong setting on a slender band",
+                AiDescription = "An engagement ring with a raised central setting holding a single larger stone, with a clean, elegant band that draws attention to the solitaire.",
+                BasePrice = 800.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000004"),
+                CategoryId = 1,
+                Code = "eternity_ring",
+                Name = "Eternity Ring",
+                Description = "Band fully encircled with small identical stones set side-by-side in a continuous channel or prong setting",
+                AiDescription = "A narrow ring with a continuous line of evenly spaced small stones going all the way around the band, creating a uniform sparkle from every angle.",
+                BasePrice = 950.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("10000000-0000-0000-0000-000000000005"),
+                CategoryId = 1,
+                Code = "signet_ring",
+                Name = "Signet Ring",
+                Description = "Broad band with a flat rectangular or oval top surface suitable for engraving or decorative elements",
+                AiDescription = "A solid, slightly heavier ring with a flat or gently curved top surface intended for a symbol or engraving, with a strong, masculine silhouette.",
+                BasePrice = 450.0m,
+                IsActive = true
             },
 
-            // Earrings (CategoryId = 2)
+            // ========================================
+            // EARRINGS (CategoryId = 2)
+            // ========================================
             new JewelryBaseModel
             {
                 Id = Guid.Parse("20000000-0000-0000-0000-000000000001"),
                 CategoryId = 2,
-                Code = "earring_stud_classic",
-                Name = "Classic Stud Earrings",
-                Description = "Minimalist studs with a single gemstone",
+                Code = "classic_stud",
+                Name = "Classic Stud",
+                Description = "Simple stud earring with a single gemstone set directly on a post, minimalist and close to the earlobe",
+                AiDescription = "A small stud earring with a single stone or smooth disc sitting close to the earlobe, mounted on a straight post with a simple backing.",
                 BasePrice = 300.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"stoneSize\":5.0}"
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("20000000-0000-0000-0000-000000000002"),
                 CategoryId = 2,
-                Code = "earring_hoop_medium",
-                Name = "Medium Hoop Earrings",
-                Description = "Classic round hoops, medium size",
-                BasePrice = 250.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"diameter\":25.0}"
+                Code = "cluster_stud",
+                Name = "Cluster Stud",
+                Description = "Stud earring featuring multiple small stones arranged in a tight cluster around a central stone",
+                AiDescription = "A stud earring formed by a tight cluster of several small stones or elements arranged into a compact shape that sits on the earlobe.",
+                BasePrice = 450.0m,
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("20000000-0000-0000-0000-000000000003"),
                 CategoryId = 2,
-                Code = "earring_drop_elegant",
-                Name = "Elegant Drop Earrings",
-                Description = "Graceful drop earrings with dangling gemstone",
-                BasePrice = 450.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"length\":35.0}"
+                Code = "small_hoop",
+                Name = "Small Hoop",
+                Description = "Smooth metal hoop in a small diameter, simple circular shape that hugs the earlobe",
+                AiDescription = "A small, smooth hoop earring that hugs the earlobe closely, with a continuous circular or slightly oval shape and no additional stones.",
+                BasePrice = 220.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("20000000-0000-0000-0000-000000000004"),
+                CategoryId = 2,
+                Code = "hoop_with_stones",
+                Name = "Hoop with Stones",
+                Description = "Hoop earring with small stones set along the outer edge, adding sparkle to the classic hoop design",
+                AiDescription = "A medium-sized hoop earring with stones set along the visible outer front section of the hoop, combining a clean circular form with a line of sparkle.",
+                BasePrice = 550.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("20000000-0000-0000-0000-000000000005"),
+                CategoryId = 2,
+                Code = "simple_drop_earring",
+                Name = "Simple Drop Earring",
+                Description = "Earring with a single stone or element suspended below the earlobe on a short chain or wire",
+                AiDescription = "A minimalist drop earring where a small pendant element hangs from a short connector, creating a light movement just below the earlobe.",
+                BasePrice = 380.0m,
+                IsActive = true
             },
 
-            // Pendants (CategoryId = 3)
+            // ========================================
+            // PENDANTS (CategoryId = 3)
+            // ========================================
             new JewelryBaseModel
             {
                 Id = Guid.Parse("30000000-0000-0000-0000-000000000001"),
                 CategoryId = 3,
-                Code = "pendant_round_simple",
-                Name = "Round Pendant",
-                Description = "Simple round pendant with center stone",
-                BasePrice = 200.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"diameter\":15.0}"
+                Code = "round_disc_pendant",
+                Name = "Round Disc Pendant",
+                Description = "Flat circular disc pendant with smooth surface, ideal for engraving or minimal embellishment",
+                AiDescription = "A flat round disc pendant with a polished surface and a small bail at the top, ideal for engraving or subtle minimalist styling.",
+                BasePrice = 180.0m,
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("30000000-0000-0000-0000-000000000002"),
                 CategoryId = 3,
-                Code = "pendant_heart_classic",
-                Name = "Heart Pendant",
-                Description = "Classic heart-shaped pendant",
-                BasePrice = 220.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"width\":12.0,\"height\":12.0}"
+                Code = "bar_pendant_vertical",
+                Name = "Bar Pendant (Vertical)",
+                Description = "Slender vertical bar pendant with clean lines and modern aesthetic, suspended by the top edge",
+                AiDescription = "A narrow vertical bar pendant with clean straight edges and a slim rectangular shape, hanging from a small bail for a modern look.",
+                BasePrice = 200.0m,
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("30000000-0000-0000-0000-000000000003"),
                 CategoryId = 3,
-                Code = "pendant_solitaire",
-                Name = "Solitaire Pendant",
-                Description = "Single stone pendant in prong setting",
-                BasePrice = 280.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"stoneSize\":6.0}"
+                Code = "heart_outline_pendant",
+                Name = "Heart Outline Pendant",
+                Description = "Open heart shape formed by a thin metal outline, romantic and delicate design",
+                AiDescription = "A pendant in the shape of a heart outline with open center, made from a smooth metal contour that feels light and romantic.",
+                BasePrice = 220.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("30000000-0000-0000-0000-000000000004"),
+                CategoryId = 3,
+                Code = "single_stone_pendant",
+                Name = "Single Stone Pendant",
+                Description = "Single prominent gemstone held in a prong or bezel setting, suspended from a chain as the focal point",
+                AiDescription = "A pendant built around a single central stone in a delicate setting, suspended from a small bail so the stone becomes the main focus.",
+                BasePrice = 350.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("30000000-0000-0000-0000-000000000005"),
+                CategoryId = 3,
+                Code = "open_circle_pendant",
+                Name = "Open Circle Pendant",
+                Description = "Circular ring pendant with open center, representing continuity and eternity",
+                AiDescription = "A simple open circle pendant with a smooth round contour and empty center, symbolizing continuity and minimalism.",
+                BasePrice = 190.0m,
+                IsActive = true
             },
 
-            // Necklaces (CategoryId = 4)
+            // ========================================
+            // NECKLACES (CategoryId = 4)
+            // ========================================
             new JewelryBaseModel
             {
                 Id = Guid.Parse("40000000-0000-0000-0000-000000000001"),
                 CategoryId = 4,
-                Code = "necklace_cable_chain",
-                Name = "Cable Chain Necklace",
-                Description = "Classic cable chain necklace",
-                BasePrice = 350.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"length\":45.0,\"linkSize\":3.0}"
+                Code = "chain_small_central_pendant",
+                Name = "Chain with Small Central Pendant",
+                Description = "Delicate chain with a small decorative pendant or charm positioned at the center front",
+                AiDescription = "A fine chain necklace with a single small pendant fixed in the center so it always rests at the front of the neck.",
+                BasePrice = 280.0m,
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("40000000-0000-0000-0000-000000000002"),
                 CategoryId = 4,
-                Code = "necklace_pendant_base",
-                Name = "Pendant Necklace Base",
-                Description = "Delicate chain designed for pendants",
-                BasePrice = 180.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"length\":42.0,\"linkSize\":2.0}"
+                Code = "tennis_necklace",
+                Name = "Tennis Necklace",
+                Description = "Continuous line of identical stones set in individual settings, creating a sparkling collar effect",
+                AiDescription = "A continuous line necklace made of closely set stones of similar size, forming a flexible sparkling band around the neck.",
+                BasePrice = 1200.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("40000000-0000-0000-0000-000000000003"),
+                CategoryId = 4,
+                Code = "minimal_choker_band",
+                Name = "Minimal Choker Band",
+                Description = "Simple thin metal band that sits snugly around the neck, modern and streamlined",
+                AiDescription = "A short, close-fitting necklace that sits high on the neck, designed as a smooth, minimal band without large dangling elements.",
+                BasePrice = 220.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("40000000-0000-0000-0000-000000000004"),
+                CategoryId = 4,
+                Code = "name_plate_necklace",
+                Name = "Name Plate Necklace",
+                Description = "Horizontal rectangular plate attached to a chain, designed for personalized name or word engraving",
+                AiDescription = "A necklace with a horizontal plate or word element at the center of a fine chain, suitable for names or short inscriptions.",
+                BasePrice = 250.0m,
+                IsActive = true
             },
 
-            // Bracelets (CategoryId = 5)
+            // ========================================
+            // BRACELETS (CategoryId = 5)
+            // ========================================
             new JewelryBaseModel
             {
                 Id = Guid.Parse("50000000-0000-0000-0000-000000000001"),
                 CategoryId = 5,
-                Code = "bracelet_chain_classic",
-                Name = "Classic Chain Bracelet",
-                Description = "Simple elegant chain bracelet",
+                Code = "chain_bracelet",
+                Name = "Chain Bracelet",
+                Description = "Flexible linked chain bracelet with clasp closure, elegant and adjustable",
+                AiDescription = "A classic chain bracelet composed of repeating metal links, flexible and lightweight, closing with a simple clasp.",
                 BasePrice = 280.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"length\":18.0,\"linkSize\":3.0}"
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("50000000-0000-0000-0000-000000000002"),
                 CategoryId = 5,
-                Code = "bracelet_bangle_simple",
-                Name = "Simple Bangle Bracelet",
-                Description = "Smooth round bangle bracelet",
+                Code = "solid_bangle",
+                Name = "Solid Bangle",
+                Description = "Rigid circular bracelet in solid metal, slips over the hand without a clasp",
+                AiDescription = "A rigid bangle bracelet formed as a closed or nearly closed ring, with a smooth exterior surface and consistent thickness.",
                 BasePrice = 320.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"diameter\":65.0,\"width\":4.0}"
+                IsActive = true
             },
             new JewelryBaseModel
             {
                 Id = Guid.Parse("50000000-0000-0000-0000-000000000003"),
                 CategoryId = 5,
-                Code = "bracelet_tennis",
+                Code = "tennis_bracelet",
                 Name = "Tennis Bracelet",
-                Description = "Classic tennis bracelet with line of stones",
+                Description = "Line bracelet with a continuous row of individually set stones linked together",
+                AiDescription = "A bracelet made of a single row of evenly spaced stones set closely together, creating a continuous line of sparkle around the wrist.",
                 BasePrice = 950.0m,
-                IsActive = true,
-                PreviewImageUrl = null,
-                MetadataJson = "{\"length\":18.0,\"stoneCount\":20}"
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("50000000-0000-0000-0000-000000000004"),
+                CategoryId = 5,
+                Code = "charm_bracelet",
+                Name = "Charm Bracelet",
+                Description = "Chain bracelet with attachment points for hanging decorative charms or pendants",
+                AiDescription = "A bracelet with a series of small pendants or charms attached to a base chain, allowing multiple decorative elements to dangle.",
+                BasePrice = 300.0m,
+                IsActive = true
+            },
+
+            // ========================================
+            // CHAINS (CategoryId = 6)
+            // ========================================
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000001"),
+                CategoryId = 6,
+                Code = "cable_chain",
+                Name = "Cable Chain",
+                Description = "Classic chain with uniform oval or round links connected in a simple alternating pattern",
+                AiDescription = "A simple cable chain made from uniform round or oval links connected in a straightforward pattern, suitable for pendants or standalone wear.",
+                BasePrice = 150.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000002"),
+                CategoryId = 6,
+                Code = "curb_chain",
+                Name = "Curb Chain",
+                Description = "Chain with interlocking uniform links that lie flat when worn, creating a smooth surface",
+                AiDescription = "A curb chain with flattened, twisted links that lie smoothly against the skin, giving a slightly heavier and more masculine look.",
+                BasePrice = 170.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000003"),
+                CategoryId = 6,
+                Code = "figaro_chain",
+                Name = "Figaro Chain",
+                Description = "Chain with alternating pattern of short and long oval links, typically three short links followed by one elongated link",
+                AiDescription = "A Figaro chain with a repeating pattern of one or two shorter links followed by a longer link, creating a rhythmic, stylish structure.",
+                BasePrice = 160.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000004"),
+                CategoryId = 6,
+                Code = "rope_chain",
+                Name = "Rope Chain",
+                Description = "Chain with small links twisted together to resemble rope texture, creating a thick and durable design",
+                AiDescription = "A rope chain built from twisted links that visually mimic a rope, with a textured, three-dimensional appearance and continuous spiral look.",
+                BasePrice = 200.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("60000000-0000-0000-0000-000000000005"),
+                CategoryId = 6,
+                Code = "box_chain",
+                Name = "Box Chain",
+                Description = "Chain with square links forming a smooth, continuous tube-like appearance",
+                AiDescription = "A chain composed of small square or box-shaped links, forming a strong, geometric and slightly more structured profile.",
+                BasePrice = 180.0m,
+                IsActive = true
+            },
+
+            // ========================================
+            // BROOCHES (CategoryId = 7)
+            // ========================================
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("70000000-0000-0000-0000-000000000001"),
+                CategoryId = 7,
+                Code = "floral_brooch",
+                Name = "Floral Brooch",
+                Description = "Decorative pin with flower-inspired design featuring petals and possibly a center stone",
+                AiDescription = "A brooch shaped like a stylized flower with petals radiating from the center, designed to sit flat on fabric and add a decorative accent.",
+                BasePrice = 280.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("70000000-0000-0000-0000-000000000002"),
+                CategoryId = 7,
+                Code = "geometric_bar_brooch",
+                Name = "Geometric Bar Brooch",
+                Description = "Horizontal bar pin with clean geometric lines and modern aesthetic",
+                AiDescription = "An elongated bar-shaped brooch with clean geometric lines, often worn horizontally or diagonally as a subtle modern statement.",
+                BasePrice = 220.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("70000000-0000-0000-0000-000000000003"),
+                CategoryId = 7,
+                Code = "animal_shape_brooch",
+                Name = "Animal Shape Brooch",
+                Description = "Decorative pin shaped like an animal or creature, often embellished with stones or enamel",
+                AiDescription = "A brooch representing the silhouette or detailed figure of an animal, with contours and details emphasizing its character.",
+                BasePrice = 300.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("70000000-0000-0000-0000-000000000004"),
+                CategoryId = 7,
+                Code = "monogram_brooch",
+                Name = "Monogram Brooch",
+                Description = "Pin featuring stylized initials or letters in an elegant font design",
+                AiDescription = "A brooch based on one or more letters intertwined into a decorative monogram, designed to stand out on clothing with refined lines.",
+                BasePrice = 250.0m,
+                IsActive = true
+            },
+
+            // ========================================
+            // PIERCING (CategoryId = 9)
+            // ========================================
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("90000000-0000-0000-0000-000000000001"),
+                CategoryId = 9,
+                Code = "labret_stud",
+                Name = "Labret Stud",
+                Description = "Flat-back piercing stud with decorative front, suitable for lip, ear cartilage, or other piercings",
+                AiDescription = "A piercing jewelry piece with a flat disc on one end and a decorative top on the other, designed to sit flush against the skin.",
+                BasePrice = 120.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("90000000-0000-0000-0000-000000000002"),
+                CategoryId = 9,
+                Code = "hoop_piercing",
+                Name = "Hoop Piercing",
+                Description = "Circular or semi-circular hoop for various piercing locations, with secure closure mechanism",
+                AiDescription = "A small, smooth hoop for piercing that forms a mostly closed circle, suitable for ears, nose, or other placements.",
+                BasePrice = 100.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("90000000-0000-0000-0000-000000000003"),
+                CategoryId = 9,
+                Code = "straight_barbell",
+                Name = "Straight Barbell",
+                Description = "Straight bar with threaded balls or decorative ends on both sides, used for tongue, nipple, or industrial piercings",
+                AiDescription = "A straight bar piercing with a central shaft and a removable ball or decorative element on each end, used for tongue or ear piercings.",
+                BasePrice = 90.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("90000000-0000-0000-0000-000000000004"),
+                CategoryId = 9,
+                Code = "curved_barbell",
+                Name = "Curved Barbell",
+                Description = "Gently curved bar with threaded ends, commonly used for eyebrow, navel, or rook piercings",
+                AiDescription = "A gently curved barbell with beads or decorative ends, intended for areas like the eyebrow or navel where the curve follows the body.",
+                BasePrice = 95.0m,
+                IsActive = true
+            },
+
+            // ========================================
+            // HAIR JEWELRY (CategoryId = 10)
+            // ========================================
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("a0000000-0000-0000-0000-000000000001"),
+                CategoryId = 10,
+                Code = "single_stone_hair_pin",
+                Name = "Single Stone Hair Pin",
+                Description = "Simple hair pin with a single gemstone or decorative element at the top",
+                AiDescription = "A slim hair pin with a single stone or decorative element mounted at one end, meant to be partially visible in the hairstyle.",
+                BasePrice = 80.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("a0000000-0000-0000-0000-000000000002"),
+                CategoryId = 10,
+                Code = "cluster_decorative_hair_pin",
+                Name = "Cluster Decorative Hair Pin",
+                Description = "Hair pin featuring a cluster of small stones or floral elements in an ornate design",
+                AiDescription = "A hair pin with a small cluster of stones or elements arranged near the tip, creating a more pronounced decorative accent in the hair.",
+                BasePrice = 120.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("a0000000-0000-0000-0000-000000000003"),
+                CategoryId = 10,
+                Code = "decorative_hair_comb",
+                Name = "Decorative Hair Comb",
+                Description = "Hair comb with decorative top edge embellished with stones or metal work",
+                AiDescription = "A short comb with multiple teeth that slide into the hair and a decorative top bar featuring stones or metal motifs.",
+                BasePrice = 150.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("a0000000-0000-0000-0000-000000000004"),
+                CategoryId = 10,
+                Code = "minimal_bar_hair_clip",
+                Name = "Minimal Bar Hair Clip",
+                Description = "Simple metal bar hair clip with clean lines and minimal decoration",
+                AiDescription = "A sleek bar-style hair clip with a clean rectangular front piece, designed to hold a section of hair with minimal visual clutter.",
+                BasePrice = 60.0m,
+                IsActive = true
+            },
+
+            // ========================================
+            // MEN'S JEWELRY (CategoryId = 12)
+            // ========================================
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("c0000000-0000-0000-0000-000000000001"),
+                CategoryId = 12,
+                Code = "mens_signet_ring",
+                Name = "Men's Signet Ring",
+                Description = "Bold signet ring with wide band and large flat top surface, suitable for engraving or emblem",
+                AiDescription = "A substantial men's signet ring with a flat or lightly domed top face and thicker band, designed for a bold, classic masculine statement.",
+                BasePrice = 500.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("c0000000-0000-0000-0000-000000000002"),
+                CategoryId = 12,
+                Code = "mens_chain_necklace",
+                Name = "Men's Chain Necklace",
+                Description = "Substantial chain necklace with heavier gauge links, masculine and durable design",
+                AiDescription = "A medium-thickness chain necklace with sturdy links and a slightly heavier feel, intended for men's everyday wear.",
+                BasePrice = 400.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("c0000000-0000-0000-0000-000000000003"),
+                CategoryId = 12,
+                Code = "mens_link_bracelet",
+                Name = "Men's Link Bracelet",
+                Description = "Heavy link bracelet with robust construction and masculine proportions",
+                AiDescription = "A bracelet made of larger, stronger links that form a solid masculine chain around the wrist, closing with a robust clasp.",
+                BasePrice = 450.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("c0000000-0000-0000-0000-000000000004"),
+                CategoryId = 12,
+                Code = "classic_cufflinks",
+                Name = "Classic Cufflinks",
+                Description = "Pair of dress shirt cufflinks with simple geometric shape, suitable for formal wear",
+                AiDescription = "A pair of classic cufflinks with a flat or slightly domed decorative front face and a hinged back part that secures the cuff.",
+                BasePrice = 180.0m,
+                IsActive = true
+            },
+
+            // ========================================
+            // CROSS PENDANTS (CategoryId = 14)
+            // ========================================
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("e0000000-0000-0000-0000-000000000001"),
+                CategoryId = 14,
+                Code = "plain_latin_cross",
+                Name = "Plain Latin Cross",
+                Description = "Simple Latin cross with clean lines and smooth surface, traditional proportions with longer vertical beam",
+                AiDescription = "A simple Latin cross pendant with clean straight arms and a slightly elongated vertical bar, without stones or engravings.",
+                BasePrice = 150.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("e0000000-0000-0000-0000-000000000002"),
+                CategoryId = 14,
+                Code = "orthodox_style_cross",
+                Name = "Orthodox-Style Cross",
+                Description = "Three-bar cross design in Orthodox tradition, featuring slanted lower bar and detailed proportions",
+                AiDescription = "A pendant in an Orthodox-style cross shape with characteristic additional crossbars and more intricate contours.",
+                BasePrice = 180.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("e0000000-0000-0000-0000-000000000003"),
+                CategoryId = 14,
+                Code = "cross_with_stones",
+                Name = "Cross with Stones",
+                Description = "Latin cross embellished with small gemstones set along the beams or at intersection points",
+                AiDescription = "A cross pendant with small stones set along the arms, adding sparkle while preserving the clear cross silhouette.",
+                BasePrice = 280.0m,
+                IsActive = true
+            },
+            new JewelryBaseModel
+            {
+                Id = Guid.Parse("e0000000-0000-0000-0000-000000000004"),
+                CategoryId = 14,
+                Code = "minimal_thin_cross",
+                Name = "Minimal Thin Cross",
+                Description = "Delicate cross with very thin wire-like construction, modern and understated design",
+                AiDescription = "A very slim, minimal cross pendant with narrow arms and a lightweight appearance, emphasizing simplicity and elegance.",
+                BasePrice = 120.0m,
+                IsActive = true
             }
         );
     }

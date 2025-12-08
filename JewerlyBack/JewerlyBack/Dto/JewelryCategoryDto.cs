@@ -6,4 +6,5 @@ public class JewelryCategoryDto
     public string Code { get; set; } = string.Empty;
     public string Name { get; set; } = string.Empty;
     public string? Description { get; set; }
+    public string? AiCategoryDescription { get; set; }
 }

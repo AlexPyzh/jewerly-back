@@ -7,6 +7,7 @@ public class JewelryBaseModel
     public required string Name { get; set; }
     public required string Code { get; set; }
     public string? Description { get; set; }
+    public string? AiDescription { get; set; }
     public string? PreviewImageUrl { get; set; }
     public decimal BasePrice { get; set; }
     public bool IsActive { get; set; }

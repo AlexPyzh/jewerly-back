@@ -1,10 +1,13 @@
 using System.Text.Json;
+using JewerlyBack.Application.Ai;
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Data;
 using JewerlyBack.Dto;
+using JewerlyBack.Infrastructure.Ai.Configuration;
 using JewerlyBack.Infrastructure.Exceptions;
 using JewerlyBack.Models;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 
 namespace JewerlyBack.Services;
 
@@ -15,13 +18,25 @@ public class AiPreviewService : IAiPreviewService
 {
     private readonly AppDbContext _context;
     private readonly ILogger<AiPreviewService> _logger;
+    private readonly IAiConfigBuilder _aiConfigBuilder;
+    private readonly AiPreviewOptions _options;
+    private readonly JsonSerializerOptions _jsonOptions;
 
     public AiPreviewService(
         AppDbContext context,
-        ILogger<AiPreviewService> logger)
+        ILogger<AiPreviewService> logger,
+        IAiConfigBuilder aiConfigBuilder,
+        IOptions<AiPreviewOptions> options)
     {
         _context = context;
         _logger = logger;
+        _aiConfigBuilder = aiConfigBuilder;
+        _options = options.Value;
+        _jsonOptions = new JsonSerializerOptions
+        {
+            WriteIndented = true, // Красиво форматированный JSON для читабельности
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
     }
 
     public async Task<AiPreviewJobDto> CreateJobAsync(
@@ -83,6 +98,28 @@ public class AiPreviewService : IAiPreviewService
                 UpdatedAtUtc = now
             };
 
+            // Строим семантический AI конфиг и сохраняем его в job
+            try
+            {
+                var aiConfig = await _aiConfigBuilder.BuildForConfigurationAsync(
+                    request.ConfigurationId,
+                    userId.Value,
+                    ct);
+
+                job.AiConfigJson = JsonSerializer.Serialize(aiConfig, _jsonOptions);
+
+                _logger.LogInformation(
+                    "✅ AI Config built for job {JobId}:\n{AiConfigJson}",
+                    job.Id, job.AiConfigJson);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to build AI config for job {JobId}, configuration {ConfigurationId}. Job will be created without AiConfigJson",
+                    job.Id, request.ConfigurationId);
+                // Не критично - job можно создать и без AiConfigJson
+            }
+
             _context.AiPreviewJobs.Add(job);
             await _context.SaveChangesAsync(ct);
 
@@ -109,20 +146,34 @@ public class AiPreviewService : IAiPreviewService
                 guestClientId, request.ConfigurationId, request.Type);
 
             // Проверяем лимит для гостя
-            const int maxFreeGuestJobs = 5;
+            var maxFreeGuestJobs = _options.GuestFreePreviewLimit;
 
-            var completedCount = await _context.AiPreviewJobs
-                .Where(j => j.GuestClientId == guestClientId
-                            && j.UserId == null
-                            && j.Status == AiPreviewStatus.Completed)
-                .CountAsync(ct);
-
-            if (completedCount >= maxFreeGuestJobs)
+            // Если лимит <= 0 — он отключён для этой среды (Development)
+            if (maxFreeGuestJobs > 0)
             {
-                _logger.LogWarning(
-                    "Guest {GuestClientId} exceeded free AI preview limit ({Limit})",
-                    guestClientId, maxFreeGuestJobs);
-                throw new AiLimitExceededException(guestClientId, maxFreeGuestJobs);
+                var completedCount = await _context.AiPreviewJobs
+                    .Where(j => j.GuestClientId == guestClientId
+                                && j.UserId == null
+                                && j.Status == AiPreviewStatus.Completed)
+                    .CountAsync(ct);
+
+                if (completedCount >= maxFreeGuestJobs)
+                {
+                    _logger.LogWarning(
+                        "Guest {GuestClientId} exceeded free AI preview limit ({Limit})",
+                        guestClientId, maxFreeGuestJobs);
+                    throw new AiLimitExceededException(guestClientId, maxFreeGuestJobs);
+                }
+
+                _logger.LogDebug(
+                    "Guest {GuestClientId} has {CompletedCount}/{Limit} completed AI previews",
+                    guestClientId, completedCount, maxFreeGuestJobs);
+            }
+            else
+            {
+                _logger.LogDebug(
+                    "Guest AI preview limit is disabled (GuestFreePreviewLimit={Limit})",
+                    maxFreeGuestJobs);
             }
 
             // Проверяем, что конфигурация существует
@@ -150,12 +201,49 @@ public class AiPreviewService : IAiPreviewService
                 UpdatedAtUtc = now
             };
 
+            // Строим семантический AI конфиг и сохраняем его в job
+            try
+            {
+                var aiConfig = await _aiConfigBuilder.BuildForConfigurationAsync(
+                    request.ConfigurationId,
+                    null, // userId = null для гостя
+                    ct);
+
+                job.AiConfigJson = JsonSerializer.Serialize(aiConfig, _jsonOptions);
+
+                _logger.LogInformation(
+                    "✅ AI Config built for guest job {JobId}:\n{AiConfigJson}",
+                    job.Id, job.AiConfigJson);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex,
+                    "Failed to build AI config for guest job {JobId}, configuration {ConfigurationId}. Job will be created without AiConfigJson",
+                    job.Id, request.ConfigurationId);
+                // Не критично - job можно создать и без AiConfigJson
+            }
+
             _context.AiPreviewJobs.Add(job);
             await _context.SaveChangesAsync(ct);
 
-            _logger.LogInformation(
-                "AI preview job {JobId} created successfully for guest {GuestClientId} ({CompletedCount}/{Limit})",
-                job.Id, guestClientId, completedCount + 1, maxFreeGuestJobs);
+            if (maxFreeGuestJobs > 0)
+            {
+                var currentCount = await _context.AiPreviewJobs
+                    .Where(j => j.GuestClientId == guestClientId
+                                && j.UserId == null
+                                && j.Status == AiPreviewStatus.Completed)
+                    .CountAsync(ct);
+
+                _logger.LogInformation(
+                    "AI preview job {JobId} created successfully for guest {GuestClientId} ({CompletedCount}/{Limit})",
+                    job.Id, guestClientId, currentCount, maxFreeGuestJobs);
+            }
+            else
+            {
+                _logger.LogInformation(
+                    "AI preview job {JobId} created successfully for guest {GuestClientId} (limit disabled)",
+                    job.Id, guestClientId);
+            }
 
             return MapToDto(job);
         }

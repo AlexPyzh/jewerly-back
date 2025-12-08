@@ -41,6 +41,16 @@ public class AiPreviewJob
     public string? Prompt { get; set; }
 
     /// <summary>
+    /// Семантический JSON конфигурации для AI (обогащенный человеко-читаемыми данными)
+    /// </summary>
+    /// <remarks>
+    /// Содержит AiConfigDto в JSON формате - полное семантическое описание изделия
+    /// с названиями категорий, материалов, камней вместо сырых ID/кодов.
+    /// Используется для отладки и понимания, какой конфиг был передан в AI.
+    /// </remarks>
+    public string? AiConfigJson { get; set; }
+
+    /// <summary>
     /// Сообщение об ошибке (если статус Failed)
     /// </summary>
     public string? ErrorMessage { get; set; }

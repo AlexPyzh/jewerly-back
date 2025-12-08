@@ -1,4 +1,6 @@
+using System.Text.Json;
 using JewerlyBack.Application.Ai;
+using JewerlyBack.Application.Ai.Models;
 using JewerlyBack.Data;
 using JewerlyBack.Models;
 using Microsoft.EntityFrameworkCore;
@@ -59,6 +61,7 @@ public sealed class AiPreviewBackgroundService : BackgroundService
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         var aiProvider = scope.ServiceProvider.GetRequiredService<IAiImageProvider>();
         var promptBuilder = scope.ServiceProvider.GetRequiredService<IAiPromptBuilder>();
+        var aiConfigBuilder = scope.ServiceProvider.GetRequiredService<IAiConfigBuilder>();
 
         // Получаем pending задания
         var pendingJobs = await db.AiPreviewJobs
@@ -83,7 +86,7 @@ public sealed class AiPreviewBackgroundService : BackgroundService
                 break;
             }
 
-            await ProcessSingleJobAsync(job, db, aiProvider, promptBuilder, stoppingToken);
+            await ProcessSingleJobAsync(job, db, aiProvider, promptBuilder, aiConfigBuilder, stoppingToken);
 
             // Небольшая задержка между job'ами
             if (!stoppingToken.IsCancellationRequested)
@@ -101,6 +104,7 @@ public sealed class AiPreviewBackgroundService : BackgroundService
         AppDbContext db,
         IAiImageProvider aiProvider,
         IAiPromptBuilder promptBuilder,
+        IAiConfigBuilder aiConfigBuilder,
         CancellationToken stoppingToken)
     {
         _logger.LogInformation(
@@ -114,25 +118,48 @@ public sealed class AiPreviewBackgroundService : BackgroundService
             job.UpdatedAtUtc = DateTimeOffset.UtcNow;
             await db.SaveChangesAsync(stoppingToken);
 
-            // 2. Загружаем конфигурацию со всеми связанными данными
-            var configuration = await db.JewelryConfigurations
-                .Include(c => c.BaseModel)
-                    .ThenInclude(bm => bm.Category)
-                .Include(c => c.Material)
-                .Include(c => c.Stones)
-                    .ThenInclude(s => s.StoneType)
-                .FirstOrDefaultAsync(c => c.Id == job.ConfigurationId, stoppingToken);
+            // 2. Получаем или строим семантический AI config
+            AiConfigDto aiConfig;
 
-            if (configuration == null)
+            if (!string.IsNullOrWhiteSpace(job.AiConfigJson))
             {
-                throw new InvalidOperationException(
-                    $"Configuration {job.ConfigurationId} not found");
+                // Используем уже готовый AiConfigJson из job (был сохранен при создании)
+                _logger.LogInformation(
+                    "📦 Using existing AiConfigJson for job {JobId}:\n{AiConfigJson}",
+                    job.Id, job.AiConfigJson);
+                aiConfig = JsonSerializer.Deserialize<AiConfigDto>(job.AiConfigJson)
+                    ?? throw new InvalidOperationException("Failed to deserialize AiConfigJson");
+            }
+            else
+            {
+                // Для старых job'ов без AiConfigJson - строим заново
+                _logger.LogWarning(
+                    "AiConfigJson not found for job {JobId}, building from configuration",
+                    job.Id);
+
+                aiConfig = await aiConfigBuilder.BuildForConfigurationAsync(
+                    job.ConfigurationId,
+                    job.UserId,
+                    stoppingToken);
+
+                // Сохраняем построенный config в job для будущих reference
+                job.AiConfigJson = JsonSerializer.Serialize(aiConfig, new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+                });
+
+                _logger.LogInformation(
+                    "📦 Built new AiConfigJson for job {JobId}:\n{AiConfigJson}",
+                    job.Id, job.AiConfigJson);
             }
 
-            // 3. Строим промпт
-            var prompt = await promptBuilder.BuildPreviewPromptAsync(configuration, stoppingToken);
+            // 3. Строим промпт на основе семантического config
+            var prompt = await promptBuilder.BuildPreviewPromptAsync(aiConfig, stoppingToken);
 
-            _logger.LogInformation("Generated prompt for job {JobId}: {Prompt}", job.Id, prompt);
+            _logger.LogInformation(
+                "🎨 Generated AI Prompt for job {JobId}:\n{Prompt}",
+                job.Id, prompt);
 
             // 4. Генерируем изображение в зависимости от типа
             if (job.Type == AiPreviewType.SingleImage)

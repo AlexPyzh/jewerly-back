@@ -273,6 +273,11 @@ builder.Services.Configure<AuthOptions>(builder.Configuration.GetSection(AuthOpt
 builder.Services.Configure<GoogleAuthOptions>(builder.Configuration.GetSection(GoogleAuthOptions.SectionName));
 builder.Services.Configure<AppleAuthOptions>(builder.Configuration.GetSection(AppleAuthOptions.SectionName));
 
+// ========================================
+// AI Preview Configuration
+// ========================================
+builder.Services.Configure<AiPreviewOptions>(builder.Configuration.GetSection(AiPreviewOptions.SectionName));
+
 var authOptions = builder.Configuration.GetSection(AuthOptions.SectionName).Get<AuthOptions>()
     ?? throw new InvalidOperationException("Auth configuration is missing");
 
@@ -393,6 +398,7 @@ builder.Services.AddHttpClient<IAiImageProvider, OpenAiImageProvider>((sp, clien
     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
 });
 builder.Services.AddScoped<IAiPromptBuilder, AiPromptBuilder>();
+builder.Services.AddScoped<IAiConfigBuilder, AiConfigBuilder>();
 
 // Background Services
 builder.Services.AddHostedService<AiPreviewBackgroundService>();

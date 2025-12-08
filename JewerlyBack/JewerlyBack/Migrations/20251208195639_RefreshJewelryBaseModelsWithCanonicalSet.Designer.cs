@@ -3,6 +3,7 @@ using System;
 using JewerlyBack.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JewerlyBack.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251208195639_RefreshJewelryBaseModelsWithCanonicalSet")]
+    partial class RefreshJewelryBaseModelsWithCanonicalSet
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -137,9 +140,6 @@ namespace JewerlyBack.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("AiDescription")
-                        .HasColumnType("text");
-
                     b.Property<decimal>("BasePrice")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -184,7 +184,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("10000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A classic solid band ring with a smooth, even surface and medium width, without any stones or engravings. The profile is gently rounded for everyday wear.",
                             BasePrice = 250.0m,
                             CategoryId = 1,
                             Code = "classic_solid_band",
@@ -195,7 +194,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("10000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A delicate thin band ring with a single round stone set at the top in a simple prong or bezel setting, emphasizing minimalism and lightness.",
                             BasePrice = 400.0m,
                             CategoryId = 1,
                             Code = "thin_band_single_stone",
@@ -206,7 +204,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("10000000-0000-0000-0000-000000000003"),
-                            AiDescription = "An engagement ring with a raised central setting holding a single larger stone, with a clean, elegant band that draws attention to the solitaire.",
                             BasePrice = 800.0m,
                             CategoryId = 1,
                             Code = "solitaire_engagement_ring",
@@ -217,7 +214,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("10000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A narrow ring with a continuous line of evenly spaced small stones going all the way around the band, creating a uniform sparkle from every angle.",
                             BasePrice = 950.0m,
                             CategoryId = 1,
                             Code = "eternity_ring",
@@ -228,7 +224,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("10000000-0000-0000-0000-000000000005"),
-                            AiDescription = "A solid, slightly heavier ring with a flat or gently curved top surface intended for a symbol or engraving, with a strong, masculine silhouette.",
                             BasePrice = 450.0m,
                             CategoryId = 1,
                             Code = "signet_ring",
@@ -239,7 +234,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A small stud earring with a single stone or smooth disc sitting close to the earlobe, mounted on a straight post with a simple backing.",
                             BasePrice = 300.0m,
                             CategoryId = 2,
                             Code = "classic_stud",
@@ -250,7 +244,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A stud earring formed by a tight cluster of several small stones or elements arranged into a compact shape that sits on the earlobe.",
                             BasePrice = 450.0m,
                             CategoryId = 2,
                             Code = "cluster_stud",
@@ -261,7 +254,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A small, smooth hoop earring that hugs the earlobe closely, with a continuous circular or slightly oval shape and no additional stones.",
                             BasePrice = 220.0m,
                             CategoryId = 2,
                             Code = "small_hoop",
@@ -272,7 +264,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A medium-sized hoop earring with stones set along the visible outer front section of the hoop, combining a clean circular form with a line of sparkle.",
                             BasePrice = 550.0m,
                             CategoryId = 2,
                             Code = "hoop_with_stones",
@@ -283,7 +274,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("20000000-0000-0000-0000-000000000005"),
-                            AiDescription = "A minimalist drop earring where a small pendant element hangs from a short connector, creating a light movement just below the earlobe.",
                             BasePrice = 380.0m,
                             CategoryId = 2,
                             Code = "simple_drop_earring",
@@ -294,7 +284,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("30000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A flat round disc pendant with a polished surface and a small bail at the top, ideal for engraving or subtle minimalist styling.",
                             BasePrice = 180.0m,
                             CategoryId = 3,
                             Code = "round_disc_pendant",
@@ -305,7 +294,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("30000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A narrow vertical bar pendant with clean straight edges and a slim rectangular shape, hanging from a small bail for a modern look.",
                             BasePrice = 200.0m,
                             CategoryId = 3,
                             Code = "bar_pendant_vertical",
@@ -316,7 +304,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("30000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A pendant in the shape of a heart outline with open center, made from a smooth metal contour that feels light and romantic.",
                             BasePrice = 220.0m,
                             CategoryId = 3,
                             Code = "heart_outline_pendant",
@@ -327,7 +314,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("30000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A pendant built around a single central stone in a delicate setting, suspended from a small bail so the stone becomes the main focus.",
                             BasePrice = 350.0m,
                             CategoryId = 3,
                             Code = "single_stone_pendant",
@@ -338,7 +324,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("30000000-0000-0000-0000-000000000005"),
-                            AiDescription = "A simple open circle pendant with a smooth round contour and empty center, symbolizing continuity and minimalism.",
                             BasePrice = 190.0m,
                             CategoryId = 3,
                             Code = "open_circle_pendant",
@@ -349,7 +334,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("40000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A fine chain necklace with a single small pendant fixed in the center so it always rests at the front of the neck.",
                             BasePrice = 280.0m,
                             CategoryId = 4,
                             Code = "chain_small_central_pendant",
@@ -360,7 +344,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("40000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A continuous line necklace made of closely set stones of similar size, forming a flexible sparkling band around the neck.",
                             BasePrice = 1200.0m,
                             CategoryId = 4,
                             Code = "tennis_necklace",
@@ -371,7 +354,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("40000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A short, close-fitting necklace that sits high on the neck, designed as a smooth, minimal band without large dangling elements.",
                             BasePrice = 220.0m,
                             CategoryId = 4,
                             Code = "minimal_choker_band",
@@ -382,7 +364,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("40000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A necklace with a horizontal plate or word element at the center of a fine chain, suitable for names or short inscriptions.",
                             BasePrice = 250.0m,
                             CategoryId = 4,
                             Code = "name_plate_necklace",
@@ -393,7 +374,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("50000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A classic chain bracelet composed of repeating metal links, flexible and lightweight, closing with a simple clasp.",
                             BasePrice = 280.0m,
                             CategoryId = 5,
                             Code = "chain_bracelet",
@@ -404,7 +384,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("50000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A rigid bangle bracelet formed as a closed or nearly closed ring, with a smooth exterior surface and consistent thickness.",
                             BasePrice = 320.0m,
                             CategoryId = 5,
                             Code = "solid_bangle",
@@ -415,7 +394,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("50000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A bracelet made of a single row of evenly spaced stones set closely together, creating a continuous line of sparkle around the wrist.",
                             BasePrice = 950.0m,
                             CategoryId = 5,
                             Code = "tennis_bracelet",
@@ -426,7 +404,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("50000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A bracelet with a series of small pendants or charms attached to a base chain, allowing multiple decorative elements to dangle.",
                             BasePrice = 300.0m,
                             CategoryId = 5,
                             Code = "charm_bracelet",
@@ -437,7 +414,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("60000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A simple cable chain made from uniform round or oval links connected in a straightforward pattern, suitable for pendants or standalone wear.",
                             BasePrice = 150.0m,
                             CategoryId = 6,
                             Code = "cable_chain",
@@ -448,7 +424,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("60000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A curb chain with flattened, twisted links that lie smoothly against the skin, giving a slightly heavier and more masculine look.",
                             BasePrice = 170.0m,
                             CategoryId = 6,
                             Code = "curb_chain",
@@ -459,7 +434,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("60000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A Figaro chain with a repeating pattern of one or two shorter links followed by a longer link, creating a rhythmic, stylish structure.",
                             BasePrice = 160.0m,
                             CategoryId = 6,
                             Code = "figaro_chain",
@@ -470,7 +444,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("60000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A rope chain built from twisted links that visually mimic a rope, with a textured, three-dimensional appearance and continuous spiral look.",
                             BasePrice = 200.0m,
                             CategoryId = 6,
                             Code = "rope_chain",
@@ -481,7 +454,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("60000000-0000-0000-0000-000000000005"),
-                            AiDescription = "A chain composed of small square or box-shaped links, forming a strong, geometric and slightly more structured profile.",
                             BasePrice = 180.0m,
                             CategoryId = 6,
                             Code = "box_chain",
@@ -492,7 +464,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("70000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A brooch shaped like a stylized flower with petals radiating from the center, designed to sit flat on fabric and add a decorative accent.",
                             BasePrice = 280.0m,
                             CategoryId = 7,
                             Code = "floral_brooch",
@@ -503,7 +474,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("70000000-0000-0000-0000-000000000002"),
-                            AiDescription = "An elongated bar-shaped brooch with clean geometric lines, often worn horizontally or diagonally as a subtle modern statement.",
                             BasePrice = 220.0m,
                             CategoryId = 7,
                             Code = "geometric_bar_brooch",
@@ -514,7 +484,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("70000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A brooch representing the silhouette or detailed figure of an animal, with contours and details emphasizing its character.",
                             BasePrice = 300.0m,
                             CategoryId = 7,
                             Code = "animal_shape_brooch",
@@ -525,7 +494,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("70000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A brooch based on one or more letters intertwined into a decorative monogram, designed to stand out on clothing with refined lines.",
                             BasePrice = 250.0m,
                             CategoryId = 7,
                             Code = "monogram_brooch",
@@ -536,7 +504,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("90000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A piercing jewelry piece with a flat disc on one end and a decorative top on the other, designed to sit flush against the skin.",
                             BasePrice = 120.0m,
                             CategoryId = 9,
                             Code = "labret_stud",
@@ -547,7 +514,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("90000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A small, smooth hoop for piercing that forms a mostly closed circle, suitable for ears, nose, or other placements.",
                             BasePrice = 100.0m,
                             CategoryId = 9,
                             Code = "hoop_piercing",
@@ -558,7 +524,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("90000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A straight bar piercing with a central shaft and a removable ball or decorative element on each end, used for tongue or ear piercings.",
                             BasePrice = 90.0m,
                             CategoryId = 9,
                             Code = "straight_barbell",
@@ -569,7 +534,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("90000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A gently curved barbell with beads or decorative ends, intended for areas like the eyebrow or navel where the curve follows the body.",
                             BasePrice = 95.0m,
                             CategoryId = 9,
                             Code = "curved_barbell",
@@ -580,7 +544,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("a0000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A slim hair pin with a single stone or decorative element mounted at one end, meant to be partially visible in the hairstyle.",
                             BasePrice = 80.0m,
                             CategoryId = 10,
                             Code = "single_stone_hair_pin",
@@ -591,7 +554,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("a0000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A hair pin with a small cluster of stones or elements arranged near the tip, creating a more pronounced decorative accent in the hair.",
                             BasePrice = 120.0m,
                             CategoryId = 10,
                             Code = "cluster_decorative_hair_pin",
@@ -602,7 +564,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("a0000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A short comb with multiple teeth that slide into the hair and a decorative top bar featuring stones or metal motifs.",
                             BasePrice = 150.0m,
                             CategoryId = 10,
                             Code = "decorative_hair_comb",
@@ -613,7 +574,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("a0000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A sleek bar-style hair clip with a clean rectangular front piece, designed to hold a section of hair with minimal visual clutter.",
                             BasePrice = 60.0m,
                             CategoryId = 10,
                             Code = "minimal_bar_hair_clip",
@@ -624,7 +584,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("c0000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A substantial men's signet ring with a flat or lightly domed top face and thicker band, designed for a bold, classic masculine statement.",
                             BasePrice = 500.0m,
                             CategoryId = 12,
                             Code = "mens_signet_ring",
@@ -635,7 +594,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("c0000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A medium-thickness chain necklace with sturdy links and a slightly heavier feel, intended for men's everyday wear.",
                             BasePrice = 400.0m,
                             CategoryId = 12,
                             Code = "mens_chain_necklace",
@@ -646,7 +604,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("c0000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A bracelet made of larger, stronger links that form a solid masculine chain around the wrist, closing with a robust clasp.",
                             BasePrice = 450.0m,
                             CategoryId = 12,
                             Code = "mens_link_bracelet",
@@ -657,7 +614,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("c0000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A pair of classic cufflinks with a flat or slightly domed decorative front face and a hinged back part that secures the cuff.",
                             BasePrice = 180.0m,
                             CategoryId = 12,
                             Code = "classic_cufflinks",
@@ -668,7 +624,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("e0000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A simple Latin cross pendant with clean straight arms and a slightly elongated vertical bar, without stones or engravings.",
                             BasePrice = 150.0m,
                             CategoryId = 14,
                             Code = "plain_latin_cross",
@@ -679,7 +634,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("e0000000-0000-0000-0000-000000000002"),
-                            AiDescription = "A pendant in an Orthodox-style cross shape with characteristic additional crossbars and more intricate contours.",
                             BasePrice = 180.0m,
                             CategoryId = 14,
                             Code = "orthodox_style_cross",
@@ -690,7 +644,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("e0000000-0000-0000-0000-000000000003"),
-                            AiDescription = "A cross pendant with small stones set along the arms, adding sparkle while preserving the clear cross silhouette.",
                             BasePrice = 280.0m,
                             CategoryId = 14,
                             Code = "cross_with_stones",
@@ -701,7 +654,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("e0000000-0000-0000-0000-000000000004"),
-                            AiDescription = "A very slim, minimal cross pendant with narrow arms and a lightweight appearance, emphasizing simplicity and elegance.",
                             BasePrice = 120.0m,
                             CategoryId = 14,
                             Code = "minimal_thin_cross",
@@ -718,9 +670,6 @@ namespace JewerlyBack.Migrations
                         .HasColumnType("integer");
 
                     NpgsqlPropertyBuilderExtensions.UseIdentityByDefaultColumn(b.Property<int>("Id"));
-
-                    b.Property<string>("AiCategoryDescription")
-                        .HasColumnType("text");
 
                     b.Property<string>("Code")
                         .IsRequired()
@@ -750,7 +699,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 1,
-                            AiCategoryDescription = "A ring is a circular band worn on the finger, ranging from simple bands to elaborate designs with stones. Rings can be engagement rings with prominent center stones, wedding bands, fashion rings, or signet rings. They are designed to encircle the finger smoothly and can feature various widths, profiles, and decorative elements.",
                             Code = "rings",
                             Description = "Engagement and decorative rings",
                             IsActive = true,
@@ -759,7 +707,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 2,
-                            AiCategoryDescription = "Earrings are jewelry pieces worn on or hanging from the earlobe or ear cartilage. They include studs that sit close to the ear, hoops that form circular shapes, drop earrings that dangle below the lobe, and more elaborate chandelier styles. Earrings are typically sold and worn as matching pairs.",
                             Code = "earrings",
                             Description = "Various types of earrings",
                             IsActive = true,
@@ -768,7 +715,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 3,
-                            AiCategoryDescription = "A pendant is a decorative element designed to hang from a chain or cord around the neck. Pendants can be geometric shapes, symbols, stones in settings, or representational forms. They typically feature a bail or loop at the top for attachment and serve as the focal point of a necklace.",
                             Code = "pendants",
                             Description = "Pendants and charms",
                             IsActive = true,
@@ -777,7 +723,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 4,
-                            AiCategoryDescription = "A necklace is a complete piece of jewelry that encircles the neck, including both the chain or structure and any decorative elements. Necklaces can be simple chains, tennis necklaces with continuous stones, chokers that sit high on the neck, or statement pieces with integrated pendants or decorative sections.",
                             Code = "necklaces",
                             Description = "Statement and delicate necklaces",
                             IsActive = true,
@@ -786,7 +731,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 5,
-                            AiCategoryDescription = "A bracelet is jewelry worn around the wrist, either as a flexible chain with a clasp or as a rigid bangle that slips over the hand. Bracelets can be delicate chains, tennis bracelets with continuous stones, charm bracelets with dangling elements, or solid cuffs and bangles.",
                             Code = "bracelets",
                             Description = "Bangles and chain bracelets",
                             IsActive = true,
@@ -795,7 +739,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 6,
-                            AiCategoryDescription = "A chain is a flexible series of connected metal links forming a continuous strand. Chains are worn as standalone jewelry or used as the foundation for pendants. Common styles include cable chains with round links, curb chains with flat links, rope chains with twisted construction, and box chains with square links.",
                             Code = "chains",
                             Description = "Necklace and bracelet chains",
                             IsActive = true,
@@ -804,7 +747,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 7,
-                            AiCategoryDescription = "A brooch is a decorative pin with a clasp mechanism on the back, designed to attach to clothing or fabric. Brooches can be floral designs, geometric shapes, animal figures, or abstract forms. They sit flat against fabric and serve as visible decorative accents on lapels, collars, or other garment areas.",
                             Code = "brooches",
                             Description = "Decorative brooches and pins",
                             IsActive = true,
@@ -813,7 +755,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 8,
-                            AiCategoryDescription = "Cufflinks are pairs of decorative fasteners used to secure the cuffs of dress shirts. They consist of a decorative front face connected to a backing mechanism that passes through buttonholes. Cufflinks are typically worn in formal settings and feature geometric, engraved, or stone-set designs.",
                             Code = "cufflinks",
                             Description = "Cufflinks and tie accessories",
                             IsActive = false,
@@ -822,7 +763,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 9,
-                            AiCategoryDescription = "Piercing jewelry is designed for body piercings beyond standard earlobe piercings, including cartilage, nose, lip, eyebrow, navel, and other locations. Common styles include labret studs with flat backs, small hoops, straight and curved barbells. These pieces are typically small, secure, and designed for continuous wear.",
                             Code = "piercing",
                             Description = "Body piercing jewelry",
                             IsActive = true,
@@ -831,7 +771,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 10,
-                            AiCategoryDescription = "Hair jewelry includes decorative accessories designed to adorn or secure hair. This includes hair pins with decorative tops, ornate hair combs with stones or metalwork, hair clips, and decorative barrettes. These pieces combine functionality with aesthetic appeal and are visible when worn in hairstyles.",
                             Code = "hair_jewelry",
                             Description = "Hair accessories and ornaments",
                             IsActive = true,
@@ -840,7 +779,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 11,
-                            AiCategoryDescription = "A jewelry set is a coordinated collection of matching pieces designed to be worn together, such as a necklace and earrings, or a ring and bracelet combination. Sets share design elements, materials, and style to create a cohesive look.",
                             Code = "sets",
                             Description = "Matching jewelry sets",
                             IsActive = false,
@@ -849,7 +787,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 12,
-                            AiCategoryDescription = "Men's jewelry includes pieces designed with masculine proportions and aesthetic, such as heavier chain necklaces, substantial link bracelets, bold signet rings, and cufflinks. These pieces typically feature larger dimensions, stronger lines, and more substantial construction compared to traditional jewelry.",
                             Code = "mens_jewelry",
                             Description = "Jewelry designed for men",
                             IsActive = true,
@@ -858,7 +795,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 13,
-                            AiCategoryDescription = "Custom jewelry encompasses unique, made-to-order pieces designed specifically for an individual customer. These pieces can be any category but are characterized by personalized design elements, custom proportions, unique stone arrangements, or special engravings that make them one-of-a-kind creations.",
                             Code = "custom",
                             Description = "Unique custom-made jewelry",
                             IsActive = false,
@@ -867,7 +803,6 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = 14,
-                            AiCategoryDescription = "Cross pendants are religious or symbolic jewelry pieces in the shape of a cross, designed to hang from a chain. They range from simple Latin crosses with clean lines to elaborate Orthodox crosses with multiple bars, and can be plain metal or embellished with stones. Cross pendants serve both as expressions of faith and as decorative jewelry.",
                             Code = "cross_pendants",
                             Description = "Religious cross pendants and charms",
                             IsActive = true,
