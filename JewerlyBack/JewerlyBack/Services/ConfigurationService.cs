@@ -306,48 +306,68 @@ public class ConfigurationService : IConfigurationService
         // Обновление камней
         if (request.Stones != null)
         {
-            // Удаляем старые камни
-            _context.JewelryConfigurationStones.RemoveRange(configuration.Stones);
-
-            // Добавляем новые камни
-            foreach (var stoneDto in request.Stones)
+            // IMPORTANT: Detach existing tracked stones BEFORE using ExecuteDeleteAsync
+            // ExecuteDeleteAsync bypasses change tracking, so tracked entities would cause
+            // DbUpdateConcurrencyException when SaveChangesAsync tries to delete already-deleted rows
+            foreach (var existingStone in configuration.Stones.ToList())
             {
-                var stone = new JewelryConfigurationStone
-                {
-                    Id = Guid.NewGuid(),
-                    ConfigurationId = configurationId,
-                    StoneTypeId = stoneDto.StoneTypeId,
-                    PositionIndex = stoneDto.PositionIndex,
-                    CaratWeight = stoneDto.CaratWeight,
-                    SizeMm = stoneDto.SizeMm,
-                    Count = stoneDto.Count,
-                    PlacementDataJson = stoneDto.PlacementDataJson
-                };
-                configuration.Stones.Add(stone);
+                _context.Entry(existingStone).State = EntityState.Detached;
             }
+            configuration.Stones.Clear();
+
+            // Use ExecuteDeleteAsync for efficient bulk deletion (safe even if no rows exist)
+            await _context.JewelryConfigurationStones
+                .Where(s => s.ConfigurationId == configurationId)
+                .ExecuteDeleteAsync(ct);
+
+            // Add new stones - explicitly add to DbSet to ensure they are marked as Added
+            var newStones = request.Stones.Select(stoneDto => new JewelryConfigurationStone
+            {
+                Id = Guid.NewGuid(),
+                ConfigurationId = configurationId,
+                StoneTypeId = stoneDto.StoneTypeId,
+                PositionIndex = stoneDto.PositionIndex,
+                CaratWeight = stoneDto.CaratWeight,
+                SizeMm = stoneDto.SizeMm,
+                Count = stoneDto.Count,
+                PlacementDataJson = stoneDto.PlacementDataJson
+            }).ToList();
+
+            // Add to DbSet explicitly (ensures EntityState.Added)
+            // NOTE: We don't add to navigation property to avoid duplicates
+            await _context.JewelryConfigurationStones.AddRangeAsync(newStones, ct);
         }
 
         // Обновление гравировок
         if (request.Engravings != null)
         {
-            // Удаляем старые гравировки
-            _context.JewelryConfigurationEngravings.RemoveRange(configuration.Engravings);
-
-            // Добавляем новые гравировки
-            foreach (var engravingDto in request.Engravings)
+            // IMPORTANT: Detach existing tracked engravings BEFORE using ExecuteDeleteAsync
+            foreach (var existingEngraving in configuration.Engravings.ToList())
             {
-                var engraving = new JewelryConfigurationEngraving
-                {
-                    Id = Guid.NewGuid(),
-                    ConfigurationId = configurationId,
-                    Text = engravingDto.Text,
-                    FontName = engravingDto.FontName,
-                    Location = engravingDto.Location,
-                    SizeMm = engravingDto.SizeMm,
-                    IsInternal = engravingDto.IsInternal
-                };
-                configuration.Engravings.Add(engraving);
+                _context.Entry(existingEngraving).State = EntityState.Detached;
             }
+            configuration.Engravings.Clear();
+
+            // Use ExecuteDeleteAsync for efficient bulk deletion (safe even if no rows exist)
+            await _context.JewelryConfigurationEngravings
+                .Where(e => e.ConfigurationId == configurationId)
+                .ExecuteDeleteAsync(ct);
+
+            // Add new engravings - explicitly add to DbSet to ensure they are marked as Added
+            var newEngravings = request.Engravings.Select(engravingDto => new JewelryConfigurationEngraving
+            {
+                Id = Guid.NewGuid(),
+                ConfigurationId = configurationId,
+                Text = engravingDto.Text,
+                FontName = engravingDto.FontName,
+                Location = engravingDto.Location,
+                SizeMm = engravingDto.SizeMm,
+                IsInternal = engravingDto.IsInternal
+            }).ToList();
+
+            // Add to DbSet explicitly (ensures EntityState.Added)
+            // NOTE: We don't add to navigation property to avoid duplicates
+            await _context.JewelryConfigurationEngravings.AddRangeAsync(newEngravings, ct);
         }
 
         configuration.UpdatedAt = DateTimeOffset.UtcNow;
@@ -409,11 +429,16 @@ public class ConfigurationService : IConfigurationService
             "SaveOrUpdateConfiguration: userId={UserId}, configId={ConfigId}, baseModelId={BaseModelId}, materialId={MaterialId}",
             userId, configurationId, baseModelId, materialId);
 
-        // Use explicit transaction for consistency
-        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+        // Use execution strategy to support retrying execution strategy (NpgsqlRetryingExecutionStrategy)
+        var strategy = _context.Database.CreateExecutionStrategy();
 
-        try
+        return await strategy.ExecuteAsync(async () =>
         {
+            // Use explicit transaction for consistency (inside execution strategy)
+            await using var transaction = await _context.Database.BeginTransactionAsync();
+
+            try
+            {
             JewelryConfiguration? configuration = null;
 
             // Пытаемся найти существующую конфигурацию
@@ -542,7 +567,16 @@ public class ConfigurationService : IConfigurationService
                 "Updating stones for configuration {ConfigurationId}: {StoneCount} stones in request",
                 configuration.Id, request.Stones.Count);
 
-            // Use ExecuteDeleteAsync for efficient bulk deletion
+            // IMPORTANT: Detach existing tracked stones BEFORE using ExecuteDeleteAsync
+            // ExecuteDeleteAsync bypasses change tracking, so tracked entities would cause
+            // DbUpdateConcurrencyException when SaveChangesAsync tries to delete already-deleted rows
+            foreach (var existingStone in configuration.Stones.ToList())
+            {
+                _context.Entry(existingStone).State = EntityState.Detached;
+            }
+            configuration.Stones.Clear();
+
+            // Use ExecuteDeleteAsync for efficient bulk deletion (safe now that entities are detached)
             var deletedCount = await _context.JewelryConfigurationStones
                 .Where(s => s.ConfigurationId == configuration.Id)
                 .ExecuteDeleteAsync(ct);
@@ -551,25 +585,25 @@ public class ConfigurationService : IConfigurationService
                 "Deleted {DeletedCount} existing stones for configuration {ConfigurationId} in {ElapsedMs}ms",
                 deletedCount, configuration.Id, stopwatch.ElapsedMilliseconds - stonesUpdateStart);
 
-            // Clear tracked entities to avoid conflicts
-            configuration.Stones.Clear();
-
-            // Add new stones
-            foreach (var stoneDto in request.Stones)
+            // Add new stones - explicitly add to DbSet to ensure they are marked as Added
+            var newStones = request.Stones.Select(stoneDto => new JewelryConfigurationStone
             {
-                var stone = new JewelryConfigurationStone
-                {
-                    Id = Guid.NewGuid(),
-                    ConfigurationId = configuration.Id,
-                    StoneTypeId = stoneDto.StoneTypeId,
-                    PositionIndex = stoneDto.PositionIndex,
-                    CaratWeight = stoneDto.CaratWeight,
-                    SizeMm = stoneDto.SizeMm,
-                    Count = stoneDto.Count,
-                    PlacementDataJson = stoneDto.PlacementDataJson
-                };
-                configuration.Stones.Add(stone);
+                Id = Guid.NewGuid(),
+                ConfigurationId = configuration.Id,
+                StoneTypeId = stoneDto.StoneTypeId,
+                PositionIndex = stoneDto.PositionIndex,
+                CaratWeight = stoneDto.CaratWeight,
+                SizeMm = stoneDto.SizeMm,
+                Count = stoneDto.Count,
+                PlacementDataJson = stoneDto.PlacementDataJson
+            }).ToList();
 
+            // Add to DbSet explicitly (ensures EntityState.Added)
+            // NOTE: We don't add to navigation property here to avoid duplicates
+            // The navigation property will be reloaded after SaveChangesAsync
+            await _context.JewelryConfigurationStones.AddRangeAsync(newStones, ct);
+            foreach (var stone in newStones)
+            {
                 _logger.LogDebug(
                     "Added stone: StoneTypeId={StoneTypeId}, Position={Position}, Count={Count}",
                     stone.StoneTypeId, stone.PositionIndex, stone.Count);
@@ -583,24 +617,36 @@ public class ConfigurationService : IConfigurationService
         // Обновление гравировок (для обоих случаев: новая и существующая)
         if (request.Engravings != null)
         {
-            // FIXED: Use clear and add pattern to avoid tracking conflicts
+            // IMPORTANT: Detach existing tracked engravings BEFORE using ExecuteDeleteAsync
+            // ExecuteDeleteAsync bypasses change tracking, so tracked entities would cause
+            // DbUpdateConcurrencyException when SaveChangesAsync tries to delete already-deleted rows
+            foreach (var existingEngraving in configuration.Engravings.ToList())
+            {
+                _context.Entry(existingEngraving).State = EntityState.Detached;
+            }
             configuration.Engravings.Clear();
 
-            // Добавляем новые гравировки
-            foreach (var engravingDto in request.Engravings)
+            // Use ExecuteDeleteAsync for efficient bulk deletion (safe now that entities are detached)
+            await _context.JewelryConfigurationEngravings
+                .Where(e => e.ConfigurationId == configuration.Id)
+                .ExecuteDeleteAsync(ct);
+
+            // Add new engravings - explicitly add to DbSet to ensure they are marked as Added
+            var newEngravings = request.Engravings.Select(engravingDto => new JewelryConfigurationEngraving
             {
-                var engraving = new JewelryConfigurationEngraving
-                {
-                    Id = Guid.NewGuid(),
-                    ConfigurationId = configuration.Id,
-                    Text = engravingDto.Text,
-                    FontName = engravingDto.FontName,
-                    Location = engravingDto.Location,
-                    SizeMm = engravingDto.SizeMm,
-                    IsInternal = engravingDto.IsInternal
-                };
-                configuration.Engravings.Add(engraving);
-            }
+                Id = Guid.NewGuid(),
+                ConfigurationId = configuration.Id,
+                Text = engravingDto.Text,
+                FontName = engravingDto.FontName,
+                Location = engravingDto.Location,
+                SizeMm = engravingDto.SizeMm,
+                IsInternal = engravingDto.IsInternal
+            }).ToList();
+
+            // Add to DbSet explicitly (ensures EntityState.Added)
+            // NOTE: We don't add to navigation property here to avoid duplicates
+            // The navigation property will be reloaded after SaveChangesAsync
+            await _context.JewelryConfigurationEngravings.AddRangeAsync(newEngravings, ct);
         }
 
         // FIXED: Calculate price BEFORE saving to avoid multiple SaveChangesAsync calls
@@ -664,30 +710,15 @@ public class ConfigurationService : IConfigurationService
 
         await _context.SaveChangesAsync(ct);
 
-        // Commit the transaction
-        await transaction.CommitAsync(ct);
-
         _logger.LogInformation(
-            "✅ Configuration saved and committed: id={ConfigurationId}, stones={StoneCount}, price={Price}, saveTime={SaveMs}ms, totalTime={TotalMs}ms",
+            "✅ Configuration saved: id={ConfigurationId}, stones={StoneCount}, price={Price}, saveTime={SaveMs}ms",
             configuration.Id, configuration.Stones?.Count ?? 0, configuration.EstimatedPrice,
-            stopwatch.ElapsedMilliseconds - saveStart, stopwatch.ElapsedMilliseconds);
+            stopwatch.ElapsedMilliseconds - saveStart);
 
-        // Audit log (fire-and-forget, non-blocking)
-        var isNewConfiguration = !configurationId.HasValue || configuration.CreatedAt == configuration.UpdatedAt;
-        _ = Task.Run(async () =>
-        {
-            await _auditService.LogActionAsync(
-                userId,
-                "JewelryConfiguration",
-                configuration.Id.ToString(),
-                isNewConfiguration ? "Created" : "Updated",
-                new { BaseModelId = baseModelId, MaterialId = materialId, StonesCount = request.Stones?.Count ?? 0 });
-        });
+        // IMPORTANT: Load navigation properties BEFORE CommitAsync
+        // After CommitAsync, the transaction is completed and LoadAsync will fail
 
-        // FIXED: Load only missing navigation properties instead of full reload
-        // The configuration is already tracked with Stones and Engravings
-        // We only need to ensure BaseModel, Material, and StoneTypes are loaded
-
+        // Load BaseModel with Category if not already loaded
         if (configuration.BaseModel == null)
         {
             await _context.Entry(configuration)
@@ -697,6 +728,7 @@ public class ConfigurationService : IConfigurationService
                 .LoadAsync(ct);
         }
 
+        // Load Material if not already loaded
         if (configuration.Material == null)
         {
             await _context.Entry(configuration)
@@ -704,19 +736,17 @@ public class ConfigurationService : IConfigurationService
                 .LoadAsync(ct);
         }
 
-        // Load StoneType for each stone
-        if (configuration.Stones != null)
-        {
-            foreach (var stone in configuration.Stones)
-            {
-                if (stone.StoneType == null)
-                {
-                    await _context.Entry(stone)
-                        .Reference(s => s.StoneType)
-                        .LoadAsync(ct);
-                }
-            }
-        }
+        // Reload stones from database (needed because we use AddRangeAsync to DbSet, not navigation property)
+        await _context.Entry(configuration)
+            .Collection(c => c.Stones)
+            .Query()
+            .Include(s => s.StoneType)
+            .LoadAsync(ct);
+
+        // Reload engravings from database (needed because we use AddRangeAsync to DbSet, not navigation property)
+        await _context.Entry(configuration)
+            .Collection(c => c.Engravings)
+            .LoadAsync(ct);
 
         // Assets are not modified in this operation, load if needed
         if (configuration.Assets == null || !configuration.Assets.Any())
@@ -729,6 +759,25 @@ public class ConfigurationService : IConfigurationService
         _logger.LogInformation(
             "✅ Configuration fully loaded: id={ConfigurationId}, baseModelId={BaseModelId}, materialId={MaterialId}, stones={StoneCount}",
             configuration.Id, configuration.BaseModelId, configuration.MaterialId, configuration.Stones?.Count ?? 0);
+
+        // Commit the transaction AFTER all loading is done
+        await transaction.CommitAsync(ct);
+
+        _logger.LogInformation(
+            "✅ Transaction committed: id={ConfigurationId}, totalTime={TotalMs}ms",
+            configuration.Id, stopwatch.ElapsedMilliseconds);
+
+        // Audit log (fire-and-forget, non-blocking) - can run outside transaction
+        var isNewConfiguration = !configurationId.HasValue || configuration.CreatedAt == configuration.UpdatedAt;
+        _ = Task.Run(async () =>
+        {
+            await _auditService.LogActionAsync(
+                userId,
+                "JewelryConfiguration",
+                configuration.Id.ToString(),
+                isNewConfiguration ? "Created" : "Updated",
+                new { BaseModelId = baseModelId, MaterialId = materialId, StonesCount = request.Stones?.Count ?? 0 });
+        });
 
         // Ensure navigation properties are loaded before mapping
         if (configuration.BaseModel == null)
@@ -801,28 +850,29 @@ public class ConfigurationService : IConfigurationService
                 OriginalFileName = a.OriginalFileName,
                 CreatedAt = a.CreatedAt
             }).ToList() ?? new List<UploadedAssetDto>()
-        };
-        }
-        catch (DbUpdateConcurrencyException ex)
-        {
-            _logger.LogWarning(ex,
-                "Configuration {ConfigurationId} was modified or deleted (concurrency conflict). Total time: {TotalMs}ms",
-                configurationId, stopwatch.ElapsedMilliseconds);
+                };
+            }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Configuration {ConfigurationId} was modified or deleted (concurrency conflict). Total time: {TotalMs}ms",
+                    configurationId, stopwatch.ElapsedMilliseconds);
 
-            await transaction.RollbackAsync(ct);
+                await transaction.RollbackAsync();
 
-            // Retry with creating new configuration
-            return await SaveOrUpdateConfigurationAsync(userId, null, baseModelId, materialId, request, ct);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogError(ex,
-                "Error saving configuration. Total time: {TotalMs}ms",
-                stopwatch.ElapsedMilliseconds);
+                // Rethrow to let the execution strategy handle retry, or caller can retry with null configurationId
+                throw;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex,
+                    "Error saving configuration. Total time: {TotalMs}ms",
+                    stopwatch.ElapsedMilliseconds);
 
-            await transaction.RollbackAsync(ct);
-            throw;
-        }
+                await transaction.RollbackAsync();
+                throw;
+            }
+        });
     }
 
     public async Task<bool> DeleteConfigurationAsync(

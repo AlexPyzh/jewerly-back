@@ -38,7 +38,8 @@
       "Bash(docker exec:*)",
       "Bash(PGPASSWORD=890iop docker exec:*)",
       "Bash(timeout 10 dotnet run:*)",
-      "Bash(pkill:*)"
+      "Bash(pkill:*)",
+      "Bash(docker-compose up:*)"
     ],
     "deny": [],
     "ask": []
