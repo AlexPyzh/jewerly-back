@@ -356,9 +356,10 @@ builder.Services.AddSingleton<IS3StorageService, S3StorageService>();
 // - Heroku/Render: Config Vars / Environment Variables
 // - GitHub Actions: secrets.OPENAI_API_KEY
 //
-// Валидация ApiKey происходит при старте приложения.
-// Если OPENAI_API_KEY не установлен, приложение не запустится.
-builder.Services
+// Валидация ApiKey:
+// - В Production: обязательна, приложение не запустится без ключа
+// - В Development: опциональна, можно работать без ключа (для тестирования UI/DB)
+var optionsBuilder = builder.Services
     .AddOptions<OpenAiOptions>()
     .Bind(builder.Configuration.GetSection(OpenAiOptions.SectionName))
     .Configure(options =>
@@ -368,14 +369,27 @@ builder.Services
         {
             options.ApiKey = envKey;
         }
-    })
-    .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
-        "OPENAI_API_KEY must be provided. Set it as an environment variable.")
-    .ValidateOnStart();
+    });
+
+// Validate API key only in Production
+if (!builder.Environment.IsDevelopment())
+{
+    optionsBuilder
+        .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
+            "OPENAI_API_KEY must be provided in Production. Set it as an environment variable.")
+        .ValidateOnStart();
+}
+
+// ========================================
+// Caching
+// ========================================
+builder.Services.AddMemoryCache();
+builder.Services.AddSingleton<ICatalogCacheService, CatalogCacheService>();
 
 // ========================================
 // Application Services
 // ========================================
+builder.Services.AddHttpContextAccessor();
 builder.Services.AddSingleton<ITokenService, TokenService>();
 builder.Services.AddScoped<ICatalogService, CatalogService>();
 builder.Services.AddScoped<IConfigurationService, ConfigurationService>();
@@ -384,6 +398,7 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAiPreviewService, AiPreviewService>();
+builder.Services.AddScoped<IAuditService, AuditService>();
 
 // AI Services
 // Регистрация HttpClient для OpenAiImageProvider с интерфейсом IAiImageProvider
@@ -393,12 +408,19 @@ builder.Services.AddHttpClient<IAiImageProvider, OpenAiImageProvider>((sp, clien
     // Ensure BaseUrl ends with / for proper relative URL resolution
     var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
     client.BaseAddress = new Uri(baseUrl);
-    client.DefaultRequestHeaders.Authorization =
-        new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+
+    // Only set Authorization header if API key is configured
+    if (!string.IsNullOrWhiteSpace(options.ApiKey))
+    {
+        client.DefaultRequestHeaders.Authorization =
+            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
+    }
+
     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
 });
 builder.Services.AddScoped<IAiPromptBuilder, AiPromptBuilder>();
 builder.Services.AddScoped<IAiConfigBuilder, AiConfigBuilder>();
+builder.Services.AddScoped<ISemanticContextBuilder, SemanticContextBuilder>();
 
 // Background Services
 builder.Services.AddHostedService<AiPreviewBackgroundService>();

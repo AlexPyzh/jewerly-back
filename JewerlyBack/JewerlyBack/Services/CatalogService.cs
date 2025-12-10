@@ -13,21 +13,26 @@ namespace JewerlyBack.Services;
 public class CatalogService : ICatalogService
 {
     private readonly AppDbContext _context;
+    private readonly ICatalogCacheService _cacheService;
     private readonly ILogger<CatalogService> _logger;
 
-    public CatalogService(AppDbContext context, ILogger<CatalogService> logger)
+    public CatalogService(
+        AppDbContext context,
+        ICatalogCacheService cacheService,
+        ILogger<CatalogService> logger)
     {
         _context = context;
+        _cacheService = cacheService;
         _logger = logger;
     }
 
     public async Task<IReadOnlyList<JewelryCategoryDto>> GetCategoriesAsync(CancellationToken ct = default)
     {
-        _logger.LogInformation("Fetching all active jewelry categories");
+        _logger.LogDebug("Fetching all active jewelry categories from cache");
 
-        var categories = await _context.JewelryCategories
-            .Where(c => c.IsActive)
-            .OrderBy(c => c.Id)
+        var categories = await _cacheService.GetCategoriesAsync(ct);
+
+        var result = categories
             .Select(c => new JewelryCategoryDto
             {
                 Id = c.Id,
@@ -35,19 +40,19 @@ public class CatalogService : ICatalogService
                 Name = c.Name,
                 Description = c.Description
             })
-            .ToListAsync(ct);
+            .ToList();
 
-        _logger.LogInformation("Found {Count} active categories", categories.Count);
-        return categories;
+        _logger.LogDebug("Returning {Count} active categories", result.Count);
+        return result;
     }
 
     public async Task<IReadOnlyList<MaterialDto>> GetMaterialsAsync(CancellationToken ct = default)
     {
-        _logger.LogInformation("Fetching all active materials");
+        _logger.LogDebug("Fetching all active materials from cache");
 
-        var materials = await _context.Materials
-            .Where(m => m.IsActive)
-            .OrderBy(m => m.Name)
+        var materials = await _cacheService.GetMaterialsAsync(ct);
+
+        var result = materials
             .Select(m => new MaterialDto
             {
                 Id = m.Id,
@@ -58,19 +63,19 @@ public class CatalogService : ICatalogService
                 ColorHex = m.ColorHex,
                 PriceFactor = m.PriceFactor
             })
-            .ToListAsync(ct);
+            .ToList();
 
-        _logger.LogInformation("Found {Count} active materials", materials.Count);
-        return materials;
+        _logger.LogDebug("Returning {Count} active materials", result.Count);
+        return result;
     }
 
     public async Task<IReadOnlyList<StoneTypeDto>> GetStoneTypesAsync(CancellationToken ct = default)
     {
-        _logger.LogInformation("Fetching all active stone types");
+        _logger.LogDebug("Fetching all active stone types from cache");
 
-        var stoneTypes = await _context.StoneTypes
-            .Where(st => st.IsActive)
-            .OrderBy(st => st.Name)
+        var stoneTypes = await _cacheService.GetStoneTypesAsync(ct);
+
+        var result = stoneTypes
             .Select(st => new StoneTypeDto
             {
                 Id = st.Id,
@@ -79,10 +84,10 @@ public class CatalogService : ICatalogService
                 Color = st.Color,
                 DefaultPricePerCarat = st.DefaultPricePerCarat
             })
-            .ToListAsync(ct);
+            .ToList();
 
-        _logger.LogInformation("Found {Count} active stone types", stoneTypes.Count);
-        return stoneTypes;
+        _logger.LogDebug("Returning {Count} active stone types", result.Count);
+        return result;
     }
 
     public async Task<PagedResult<JewelryBaseModelDto>> GetBaseModelsByCategoryAsync(

@@ -7,7 +7,7 @@ public class JewelryConfiguration
     public Guid BaseModelId { get; set; }
     public int MaterialId { get; set; }
     public string? Name { get; set; }
-    public required string Status { get; set; }
+    public required ConfigurationStatus Status { get; set; }
     public string? ConfigJson { get; set; }
     public decimal? EstimatedPrice { get; set; }
     public DateTimeOffset CreatedAt { get; set; }

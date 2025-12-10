@@ -11,12 +11,37 @@ namespace JewerlyBack.Services;
 public class PricingService : IPricingService
 {
     private readonly AppDbContext _context;
+    private readonly ICatalogCacheService _cacheService;
     private readonly ILogger<PricingService> _logger;
 
-    public PricingService(AppDbContext context, ILogger<PricingService> logger)
+    public PricingService(
+        AppDbContext context,
+        ICatalogCacheService cacheService,
+        ILogger<PricingService> logger)
     {
         _context = context;
+        _cacheService = cacheService;
         _logger = logger;
+    }
+
+    /// <summary>
+    /// Calculates price from components without database access.
+    /// Formula: (basePrice × materialPriceFactor) + Σ(pricePerCarat × caratWeight × count)
+    /// </summary>
+    public decimal CalculatePrice(
+        decimal basePrice,
+        decimal materialPriceFactor,
+        IEnumerable<(decimal pricePerCarat, decimal caratWeight, int count)> stones)
+    {
+        var materialAdjustedPrice = basePrice * materialPriceFactor;
+
+        decimal stonesPrice = 0;
+        foreach (var (pricePerCarat, caratWeight, count) in stones)
+        {
+            stonesPrice += pricePerCarat * caratWeight * count;
+        }
+
+        return materialAdjustedPrice + stonesPrice;
     }
 
     /// <summary>
@@ -25,15 +50,13 @@ public class PricingService : IPricingService
     /// </summary>
     public async Task<decimal> CalculateConfigurationPriceAsync(Guid configurationId, CancellationToken ct = default)
     {
-        _logger.LogInformation("Calculating price for configuration {ConfigurationId}", configurationId);
+        _logger.LogDebug("Calculating price for configuration {ConfigurationId}", configurationId);
 
-        // Загружаем конфигурацию со всеми необходимыми связями
+        // Load configuration with BaseModel and Stones
         var configuration = await _context.JewelryConfigurations
             .AsNoTracking()
             .Include(c => c.BaseModel)
-            .Include(c => c.Material)
             .Include(c => c.Stones)
-                .ThenInclude(s => s.StoneType)
             .FirstOrDefaultAsync(c => c.Id == configurationId, ct);
 
         if (configuration == null)
@@ -42,60 +65,62 @@ public class PricingService : IPricingService
             throw new ArgumentException($"Configuration {configurationId} not found");
         }
 
-        // 1. Базовая цена изделия
-        var basePrice = configuration.BaseModel.BasePrice;
-        _logger.LogDebug("Base price: {BasePrice}", basePrice);
-
-        // 2. Множитель материала
-        var materialPriceFactor = configuration.Material.PriceFactor;
-        _logger.LogDebug("Material price factor: {MaterialPriceFactor}", materialPriceFactor);
-
-        // 3. Цена с учётом материала
-        // TODO: В будущем можно усложнить — учитывать реальный вес изделия, курсы драгметаллов
-        var materialAdjustedPrice = basePrice * materialPriceFactor;
-        _logger.LogDebug("Material adjusted price: {MaterialAdjustedPrice}", materialAdjustedPrice);
-
-        // 4. Расчёт стоимости камней
-        decimal stonesPrice = 0;
-        if (configuration.Stones != null && configuration.Stones.Any())
+        // Get material from cache
+        var material = await _cacheService.GetMaterialByIdAsync(configuration.MaterialId, ct);
+        if (material == null)
         {
-            foreach (var stone in configuration.Stones)
-            {
-                // Цена камня = цена за карат * вес в каратах * количество
-                var caratWeight = stone.CaratWeight ?? 0;
-                var pricePerCarat = stone.StoneType.DefaultPricePerCarat;
-                var count = stone.Count;
-
-                var stonePrice = pricePerCarat * caratWeight * count;
-                stonesPrice += stonePrice;
-
-                _logger.LogDebug(
-                    "Stone {StoneType}: {PricePerCarat} * {CaratWeight} * {Count} = {StonePrice}",
-                    stone.StoneType.Name, pricePerCarat, caratWeight, count, stonePrice);
-            }
-
-            // TODO: В будущем можно учитывать:
-            // - Качество камня (огранка, чистота, цвет)
-            // - Редкость камня
-            // - Сложность закрепки
+            _logger.LogWarning("Material {MaterialId} not found", configuration.MaterialId);
+            throw new ArgumentException($"Material {configuration.MaterialId} not found");
         }
 
-        _logger.LogDebug("Total stones price: {StonesPrice}", stonesPrice);
+        // Get stone types from cache for pricing
+        var stoneTypes = await _cacheService.GetStoneTypesAsync(ct);
+        var stoneTypesDict = stoneTypes.ToDictionary(st => st.Id, st => st.DefaultPricePerCarat);
 
-        // 5. Итоговая цена
-        var totalPrice = materialAdjustedPrice + stonesPrice;
+        // Map stones to tuples
+        var stoneTuples = configuration.Stones?
+            .Select(s => (
+                pricePerCarat: stoneTypesDict.GetValueOrDefault(s.StoneTypeId, 0),
+                caratWeight: s.CaratWeight ?? 0,
+                count: s.Count
+            ))
+            .ToList() ?? new List<(decimal, decimal, int)>();
 
-        // TODO: В будущем добавить:
-        // - Стоимость гравировки
-        // - Стоимость работы мастера (зависит от сложности)
-        // - Накладные расходы
-        // - Маржа
-        // - Скидки/акции
+        var totalPrice = CalculatePrice(
+            configuration.BaseModel.BasePrice,
+            material.PriceFactor,
+            stoneTuples);
 
-        _logger.LogInformation(
-            "Configuration {ConfigurationId} price calculated: {TotalPrice} (base: {BasePrice}, material factor: {MaterialFactor}, stones: {StonesPrice})",
-            configurationId, totalPrice, basePrice, materialPriceFactor, stonesPrice);
+        _logger.LogDebug(
+            "Configuration {ConfigurationId} price calculated: {TotalPrice} (base: {BasePrice}, material factor: {MaterialFactor}, stones count: {StonesCount})",
+            configurationId, totalPrice, configuration.BaseModel.BasePrice, material.PriceFactor, stoneTuples.Count);
 
         return totalPrice;
+    }
+
+    /// <summary>
+    /// Calculates and saves the price to the configuration entity.
+    /// </summary>
+    public async Task<decimal> CalculateAndSavePriceAsync(Guid configurationId, CancellationToken ct = default)
+    {
+        _logger.LogDebug("Calculating and saving price for configuration {ConfigurationId}", configurationId);
+
+        var price = await CalculateConfigurationPriceAsync(configurationId, ct);
+
+        // Update the configuration with calculated price
+        var configuration = await _context.JewelryConfigurations
+            .FirstOrDefaultAsync(c => c.Id == configurationId, ct);
+
+        if (configuration != null)
+        {
+            configuration.EstimatedPrice = price;
+            await _context.SaveChangesAsync(ct);
+
+            _logger.LogInformation(
+                "Configuration {ConfigurationId} price saved: {Price}",
+                configurationId, price);
+        }
+
+        return price;
     }
 }

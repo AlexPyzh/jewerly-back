@@ -8,9 +8,9 @@ namespace JewerlyBack.Dto;
 public class ConfigurationStoneDto
 {
     /// <summary>
-    /// ID записи о камне
+    /// ID записи о камне (опционально, автоматически генерируется при создании)
     /// </summary>
-    public Guid Id { get; set; }
+    public Guid? Id { get; set; }
 
     /// <summary>
     /// ID типа камня

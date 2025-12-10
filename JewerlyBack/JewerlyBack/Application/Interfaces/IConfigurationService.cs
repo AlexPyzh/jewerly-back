@@ -42,6 +42,18 @@ public interface IConfigurationService
         CancellationToken ct = default);
 
     /// <summary>
+    /// Сохранить или обновить конфигурацию (upsert)
+    /// Если конфигурация с указанным ID не существует или устарела, создаёт новую
+    /// </summary>
+    Task<JewelryConfigurationDetailDto> SaveOrUpdateConfigurationAsync(
+        Guid? userId,
+        Guid? configurationId,
+        Guid baseModelId,
+        int materialId,
+        JewelryConfigurationUpdateRequest request,
+        CancellationToken ct = default);
+
+    /// <summary>
     /// Удалить конфигурацию
     /// </summary>
     Task<bool> DeleteConfigurationAsync(

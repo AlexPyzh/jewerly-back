@@ -146,6 +146,64 @@ public class ConfigurationsController : ControllerBase
     }
 
     /// <summary>
+    /// Сохранить конфигурацию (создать новую или обновить существующую)
+    /// </summary>
+    /// <param name="request">Данные конфигурации</param>
+    /// <param name="ct">Токен отмены</param>
+    /// <remarks>
+    /// Позволяет сохранять конфигурации как для авторизованных, так и для анонимных пользователей (для AI preview).
+    /// Если ConfigurationId не указан или конфигурация не найдена, создаёт новую.
+    /// Для анонимных пользователей UserId будет null.
+    /// Всегда возвращает полную конфигурацию с актуальным ID.
+    /// </remarks>
+    [HttpPost("save")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(JewelryConfigurationDetailDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<ActionResult<JewelryConfigurationDetailDto>> SaveConfiguration(
+        [FromBody] JewelryConfigurationSaveRequest request,
+        CancellationToken ct)
+    {
+        Guid? userId = User.Identity?.IsAuthenticated == true ? User.GetCurrentUserId() : null;
+
+        _logger.LogInformation(
+            "📥 SaveConfiguration: userId={UserId}, configId={ConfigId}, baseModelId={BaseModelId}, materialId={MaterialId}",
+            userId, request.ConfigurationId, request.BaseModelId, request.MaterialId);
+
+        try
+        {
+            var updateRequest = new JewelryConfigurationUpdateRequest
+            {
+                MaterialId = request.MaterialId,
+                Name = request.Name,
+                ConfigJson = request.ConfigJson,
+                Status = request.Status,
+                Stones = request.Stones,
+                Engravings = request.Engravings
+            };
+
+            var configuration = await _configurationService.SaveOrUpdateConfigurationAsync(
+                userId,
+                request.ConfigurationId,
+                request.BaseModelId,
+                request.MaterialId,
+                updateRequest,
+                ct);
+
+            _logger.LogInformation(
+                "✅ Configuration saved successfully: id={ConfigurationId}",
+                configuration.Id);
+
+            return Ok(configuration);
+        }
+        catch (ArgumentException ex)
+        {
+            _logger.LogWarning(ex, "Invalid request for saving configuration");
+            return BadRequest(new { message = ex.Message });
+        }
+    }
+
+    /// <summary>
     /// Обновить существующую конфигурацию
     /// </summary>
     /// <param name="id">ID конфигурации</param>
@@ -154,6 +212,7 @@ public class ConfigurationsController : ControllerBase
     /// <remarks>
     /// Позволяет обновлять конфигурации как для авторизованных, так и для анонимных пользователей (для AI preview).
     /// Для анонимных пользователей UserId будет null.
+    /// DEPRECATED: используйте POST /api/configurations/save для более надёжного flow.
     /// </remarks>
     [HttpPut("{id}")]
     [AllowAnonymous]
@@ -175,7 +234,12 @@ public class ConfigurationsController : ControllerBase
             {
                 _logger.LogWarning("Configuration {ConfigurationId} not found or access denied for user {UserId}",
                     id, userId);
-                return NotFound(new { message = $"Configuration with ID {id} not found or access denied" });
+                return NotFound(new
+                {
+                    status = 404,
+                    error = "NotFound",
+                    message = "Configuration not found or outdated. It may have been deleted or modified by another session."
+                });
             }
 
             return Ok(new { message = "Configuration updated successfully" });

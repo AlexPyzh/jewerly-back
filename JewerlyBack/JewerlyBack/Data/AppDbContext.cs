@@ -1,3 +1,4 @@
+using JewerlyBack.Entities;
 using JewerlyBack.Models;
 using Microsoft.EntityFrameworkCore;
 
@@ -22,6 +23,7 @@ public class AppDbContext : DbContext
     public DbSet<Order> Orders { get; set; }
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<AiPreviewJob> AiPreviewJobs { get; set; }
+    public DbSet<AuditLog> AuditLogs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -227,8 +229,7 @@ public class AppDbContext : DbContext
                 .HasMaxLength(200);
 
             entity.Property(e => e.Status)
-                .IsRequired()
-                .HasMaxLength(50);
+                .IsRequired();
 
             entity.Property(e => e.EstimatedPrice)
                 .HasPrecision(18, 2);
@@ -271,6 +272,10 @@ public class AppDbContext : DbContext
 
             entity.Property(e => e.SizeMm)
                 .HasPrecision(18, 2);
+
+            // Index for efficient stone lookup by configuration
+            entity.HasIndex(e => e.ConfigurationId)
+                .HasDatabaseName("IX_ConfigurationStones_ConfigurationId");
         });
 
         // ========================================
@@ -419,6 +424,47 @@ public class AppDbContext : DbContext
             // Композитный индекс для поиска гостевых заданий (GuestClientId + Status)
             entity.HasIndex(e => new { e.GuestClientId, e.Status })
                 .HasFilter("\"GuestClientId\" IS NOT NULL");
+        });
+
+        // ========================================
+        // AuditLog
+        // ========================================
+        modelBuilder.Entity<AuditLog>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.EntityType)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.EntityId)
+                .IsRequired()
+                .HasMaxLength(100);
+
+            entity.Property(e => e.Action)
+                .IsRequired()
+                .HasMaxLength(50);
+
+            entity.Property(e => e.Changes)
+                .HasColumnType("text");
+
+            entity.Property(e => e.IpAddress)
+                .HasMaxLength(50);
+
+            entity.Property(e => e.UserAgent)
+                .HasMaxLength(500);
+
+            // Index for querying by entity
+            entity.HasIndex(e => new { e.EntityType, e.EntityId })
+                .HasDatabaseName("IX_AuditLogs_EntityType_EntityId");
+
+            // Index for querying by user
+            entity.HasIndex(e => e.UserId)
+                .HasDatabaseName("IX_AuditLogs_UserId");
+
+            // Index for querying by timestamp
+            entity.HasIndex(e => e.Timestamp)
+                .HasDatabaseName("IX_AuditLogs_Timestamp");
         });
 
         // ========================================

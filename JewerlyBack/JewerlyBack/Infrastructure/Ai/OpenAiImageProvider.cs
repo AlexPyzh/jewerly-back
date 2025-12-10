@@ -46,6 +46,18 @@ public sealed class OpenAiImageProvider : IAiImageProvider
             "Starting single AI image generation. ConfigurationId: {ConfigurationId}, JobId: {JobId}",
             configurationId, jobId);
 
+        // Check if API key is configured
+        if (string.IsNullOrWhiteSpace(_options.ApiKey))
+        {
+            _logger.LogWarning(
+                "OpenAI API key not configured. Returning placeholder image URL for development. " +
+                "ConfigurationId: {ConfigurationId}, JobId: {JobId}",
+                configurationId, jobId);
+
+            // Return a placeholder image URL for development
+            return "https://via.placeholder.com/1024x1024/DAA520/FFFFFF?text=AI+Preview+Placeholder";
+        }
+
         try
         {
             // 1. Вызов OpenAI Images API

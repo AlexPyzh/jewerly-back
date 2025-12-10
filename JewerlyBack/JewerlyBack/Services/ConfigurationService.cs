@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Application.Models;
 using JewerlyBack.Data;
@@ -16,15 +17,18 @@ public class ConfigurationService : IConfigurationService
     private readonly AppDbContext _context;
     private readonly ILogger<ConfigurationService> _logger;
     private readonly IPricingService _pricingService;
+    private readonly IAuditService _auditService;
 
     public ConfigurationService(
         AppDbContext context,
         ILogger<ConfigurationService> logger,
-        IPricingService pricingService)
+        IPricingService pricingService,
+        IAuditService auditService)
     {
         _context = context;
         _logger = logger;
         _pricingService = pricingService;
+        _auditService = auditService;
     }
 
     public async Task<PagedResult<JewelryConfigurationListItemDto>> GetUserConfigurationsAsync(
@@ -53,7 +57,7 @@ public class ConfigurationService : IConfigurationService
             {
                 Id = c.Id,
                 Name = c.Name,
-                Status = c.Status,
+                Status = c.Status.ToString(),
                 BaseModelName = c.BaseModel.Name,
                 MaterialName = c.Material.Name,
                 EstimatedPrice = c.EstimatedPrice,
@@ -103,7 +107,7 @@ public class ConfigurationService : IConfigurationService
             BaseModelId = configuration.BaseModelId,
             MaterialId = configuration.MaterialId,
             Name = configuration.Name,
-            Status = configuration.Status,
+            Status = configuration.Status.ToString(),
             ConfigJson = configuration.ConfigJson,
             EstimatedPrice = configuration.EstimatedPrice,
             CreatedAt = configuration.CreatedAt,
@@ -204,7 +208,7 @@ public class ConfigurationService : IConfigurationService
             BaseModelId = request.BaseModelId,
             MaterialId = request.MaterialId,
             Name = request.Name,
-            Status = "Draft",
+            Status = ConfigurationStatus.Draft,
             ConfigJson = request.ConfigJson,
             CreatedAt = now,
             UpdatedAt = now
@@ -229,6 +233,14 @@ public class ConfigurationService : IConfigurationService
         _logger.LogInformation("Configuration {ConfigurationId} created for user {UserId}",
             configuration.Id, userId);
 
+        // Audit log
+        await _auditService.LogCreateAsync(
+            userId,
+            "JewelryConfiguration",
+            configuration.Id.ToString(),
+            new { request.BaseModelId, request.MaterialId, request.Name },
+            ct);
+
         return configuration.Id;
     }
 
@@ -241,8 +253,9 @@ public class ConfigurationService : IConfigurationService
         _logger.LogInformation("Updating configuration {ConfigurationId} for user {UserId}",
             configurationId, userId);
 
+        // Load configuration with proper null handling for anonymous users
         var configuration = await _context.JewelryConfigurations
-            .Where(c => c.Id == configurationId && c.UserId == userId)
+            .Where(c => c.Id == configurationId && (c.UserId == userId || (c.UserId == null && userId == null)))
             .Include(c => c.Stones)
             .Include(c => c.Engravings)
             .FirstOrDefaultAsync(ct);
@@ -280,7 +293,14 @@ public class ConfigurationService : IConfigurationService
 
         if (request.Status != null)
         {
-            configuration.Status = request.Status;
+            if (Enum.TryParse<ConfigurationStatus>(request.Status, ignoreCase: true, out var parsedStatus))
+            {
+                configuration.Status = parsedStatus;
+            }
+            else
+            {
+                throw new ArgumentException($"Invalid status value: {request.Status}");
+            }
         }
 
         // Обновление камней
@@ -332,7 +352,17 @@ public class ConfigurationService : IConfigurationService
 
         configuration.UpdatedAt = DateTimeOffset.UtcNow;
 
-        await _context.SaveChangesAsync(ct);
+        try
+        {
+            await _context.SaveChangesAsync(ct);
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(ex,
+                "Configuration {ConfigurationId} was modified or deleted (concurrency conflict). Treating as not found for user {UserId}",
+                configurationId, userId);
+            return false;
+        }
 
         // Пересчитываем цену после всех изменений (материал, камни, гравировки)
         // Проверяем, были ли изменены параметры, влияющие на цену
@@ -345,6 +375,13 @@ public class ConfigurationService : IConfigurationService
                 configuration.EstimatedPrice = await _pricingService.CalculateConfigurationPriceAsync(configurationId, ct);
                 await _context.SaveChangesAsync(ct);
             }
+            catch (DbUpdateConcurrencyException ex)
+            {
+                _logger.LogWarning(ex,
+                    "Configuration {ConfigurationId} was deleted during price calculation. Ignoring price update.",
+                    configurationId);
+                // Configuration was deleted during price calculation - not critical
+            }
             catch (Exception ex)
             {
                 _logger.LogWarning(ex, "Failed to recalculate price for configuration {ConfigurationId}", configurationId);
@@ -356,6 +393,436 @@ public class ConfigurationService : IConfigurationService
             configurationId, userId);
 
         return true;
+    }
+
+    public async Task<JewelryConfigurationDetailDto> SaveOrUpdateConfigurationAsync(
+        Guid? userId,
+        Guid? configurationId,
+        Guid baseModelId,
+        int materialId,
+        JewelryConfigurationUpdateRequest request,
+        CancellationToken ct = default)
+    {
+        var stopwatch = Stopwatch.StartNew();
+
+        _logger.LogInformation(
+            "SaveOrUpdateConfiguration: userId={UserId}, configId={ConfigId}, baseModelId={BaseModelId}, materialId={MaterialId}",
+            userId, configurationId, baseModelId, materialId);
+
+        // Use explicit transaction for consistency
+        await using var transaction = await _context.Database.BeginTransactionAsync(ct);
+
+        try
+        {
+            JewelryConfiguration? configuration = null;
+
+            // Пытаемся найти существующую конфигурацию
+            var findConfigStart = stopwatch.ElapsedMilliseconds;
+            if (configurationId.HasValue)
+            {
+                configuration = await _context.JewelryConfigurations
+                    .Where(c => c.Id == configurationId.Value && (c.UserId == userId || (c.UserId == null && userId == null)))
+                    .Include(c => c.Stones)
+                    .Include(c => c.Engravings)
+                    .FirstOrDefaultAsync(ct);
+
+                if (configuration != null)
+                {
+                    _logger.LogInformation(
+                        "Found existing configuration {ConfigurationId} in {ElapsedMs}ms, updating",
+                        configurationId.Value, stopwatch.ElapsedMilliseconds - findConfigStart);
+                }
+                else
+                {
+                    _logger.LogWarning(
+                        "Configuration {ConfigurationId} not found or access denied for user {UserId}, will create new",
+                        configurationId.Value, userId);
+                }
+            }
+
+        // Если конфигурация не найдена или ID не был указан - создаём новую
+        if (configuration == null)
+        {
+            _logger.LogInformation(
+                "Creating new configuration for user {UserId}, baseModelId={BaseModelId}, materialId={MaterialId}",
+                userId, baseModelId, materialId);
+
+            // Валидация BaseModel и Material
+            var baseModelExists = await _context.JewelryBaseModels
+                .AnyAsync(m => m.Id == baseModelId, ct);
+
+            if (!baseModelExists)
+            {
+                _logger.LogWarning("Base model {BaseModelId} not found in database", baseModelId);
+                throw new ArgumentException($"Base model {baseModelId} not found");
+            }
+
+            var materialExists = await _context.Materials
+                .AnyAsync(m => m.Id == materialId, ct);
+
+            if (!materialExists)
+            {
+                _logger.LogWarning("Material {MaterialId} not found in database", materialId);
+                throw new ArgumentException($"Material {materialId} not found");
+            }
+
+            var now = DateTimeOffset.UtcNow;
+            configuration = new JewelryConfiguration
+            {
+                Id = Guid.NewGuid(),
+                UserId = userId,
+                BaseModelId = baseModelId,
+                MaterialId = materialId,
+                Name = request.Name,
+                Status = string.IsNullOrEmpty(request.Status)
+                    ? ConfigurationStatus.Draft
+                    : Enum.TryParse<ConfigurationStatus>(request.Status, ignoreCase: true, out var parsedStatus)
+                        ? parsedStatus
+                        : throw new ArgumentException($"Invalid status value: {request.Status}"),
+                ConfigJson = request.ConfigJson,
+                CreatedAt = now,
+                UpdatedAt = now,
+                Stones = new List<JewelryConfigurationStone>(),
+                Engravings = new List<JewelryConfigurationEngraving>()
+            };
+
+            _context.JewelryConfigurations.Add(configuration);
+
+            _logger.LogInformation(
+                "Created new configuration with ID {ConfigurationId}",
+                configuration.Id);
+        }
+        else
+        {
+            // Обновляем существующую конфигурацию
+            if (request.MaterialId.HasValue)
+            {
+                var materialExists = await _context.Materials
+                    .AnyAsync(m => m.Id == request.MaterialId.Value, ct);
+
+                if (!materialExists)
+                {
+                    throw new ArgumentException($"Material {request.MaterialId.Value} not found");
+                }
+
+                configuration.MaterialId = request.MaterialId.Value;
+            }
+
+            if (request.Name != null)
+            {
+                configuration.Name = request.Name;
+            }
+
+            if (request.ConfigJson != null)
+            {
+                configuration.ConfigJson = request.ConfigJson;
+            }
+
+            if (request.Status != null)
+            {
+                if (Enum.TryParse<ConfigurationStatus>(request.Status, ignoreCase: true, out var parsedStatus))
+                {
+                    configuration.Status = parsedStatus;
+                }
+                else
+                {
+                    throw new ArgumentException($"Invalid status value: {request.Status}");
+                }
+            }
+
+            configuration.UpdatedAt = DateTimeOffset.UtcNow;
+        }
+
+        // Обновление камней (для обоих случаев: новая и существующая)
+        if (request.Stones != null)
+        {
+            var stonesUpdateStart = stopwatch.ElapsedMilliseconds;
+
+            _logger.LogInformation(
+                "Updating stones for configuration {ConfigurationId}: {StoneCount} stones in request",
+                configuration.Id, request.Stones.Count);
+
+            // Use ExecuteDeleteAsync for efficient bulk deletion
+            var deletedCount = await _context.JewelryConfigurationStones
+                .Where(s => s.ConfigurationId == configuration.Id)
+                .ExecuteDeleteAsync(ct);
+
+            _logger.LogDebug(
+                "Deleted {DeletedCount} existing stones for configuration {ConfigurationId} in {ElapsedMs}ms",
+                deletedCount, configuration.Id, stopwatch.ElapsedMilliseconds - stonesUpdateStart);
+
+            // Clear tracked entities to avoid conflicts
+            configuration.Stones.Clear();
+
+            // Add new stones
+            foreach (var stoneDto in request.Stones)
+            {
+                var stone = new JewelryConfigurationStone
+                {
+                    Id = Guid.NewGuid(),
+                    ConfigurationId = configuration.Id,
+                    StoneTypeId = stoneDto.StoneTypeId,
+                    PositionIndex = stoneDto.PositionIndex,
+                    CaratWeight = stoneDto.CaratWeight,
+                    SizeMm = stoneDto.SizeMm,
+                    Count = stoneDto.Count,
+                    PlacementDataJson = stoneDto.PlacementDataJson
+                };
+                configuration.Stones.Add(stone);
+
+                _logger.LogDebug(
+                    "Added stone: StoneTypeId={StoneTypeId}, Position={Position}, Count={Count}",
+                    stone.StoneTypeId, stone.PositionIndex, stone.Count);
+            }
+
+            _logger.LogInformation(
+                "Stones updated for configuration {ConfigurationId}: {StoneCount} stones added in {ElapsedMs}ms",
+                configuration.Id, request.Stones.Count, stopwatch.ElapsedMilliseconds - stonesUpdateStart);
+        }
+
+        // Обновление гравировок (для обоих случаев: новая и существующая)
+        if (request.Engravings != null)
+        {
+            // FIXED: Use clear and add pattern to avoid tracking conflicts
+            configuration.Engravings.Clear();
+
+            // Добавляем новые гравировки
+            foreach (var engravingDto in request.Engravings)
+            {
+                var engraving = new JewelryConfigurationEngraving
+                {
+                    Id = Guid.NewGuid(),
+                    ConfigurationId = configuration.Id,
+                    Text = engravingDto.Text,
+                    FontName = engravingDto.FontName,
+                    Location = engravingDto.Location,
+                    SizeMm = engravingDto.SizeMm,
+                    IsInternal = engravingDto.IsInternal
+                };
+                configuration.Engravings.Add(engraving);
+            }
+        }
+
+        // FIXED: Calculate price BEFORE saving to avoid multiple SaveChangesAsync calls
+        bool shouldRecalculatePrice = request.MaterialId.HasValue || request.Stones != null;
+
+        if (shouldRecalculatePrice)
+        {
+            try
+            {
+                _logger.LogInformation("Calculating price for configuration {ConfigurationId} before save", configuration.Id);
+
+                // Calculate price based on the in-memory configuration (not yet saved)
+                var basePrice = configuration.BaseModel?.BasePrice ??
+                    (await _context.JewelryBaseModels
+                        .Where(m => m.Id == configuration.BaseModelId)
+                        .Select(m => m.BasePrice)
+                        .FirstOrDefaultAsync(ct));
+
+                var materialPriceFactor = configuration.Material?.PriceFactor ??
+                    (await _context.Materials
+                        .Where(m => m.Id == configuration.MaterialId)
+                        .Select(m => m.PriceFactor)
+                        .FirstOrDefaultAsync(ct));
+
+                var materialAdjustedPrice = basePrice * materialPriceFactor;
+
+                // Calculate stones price
+                decimal stonesPrice = 0;
+                if (configuration.Stones != null && configuration.Stones.Any())
+                {
+                    var stoneTypeIds = configuration.Stones.Select(s => s.StoneTypeId).ToList();
+                    var stoneTypes = await _context.StoneTypes
+                        .Where(st => stoneTypeIds.Contains(st.Id))
+                        .ToDictionaryAsync(st => st.Id, st => st.DefaultPricePerCarat, ct);
+
+                    foreach (var stone in configuration.Stones)
+                    {
+                        var caratWeight = stone.CaratWeight ?? 0;
+                        var pricePerCarat = stoneTypes.GetValueOrDefault(stone.StoneTypeId, 0);
+                        var count = stone.Count;
+                        stonesPrice += pricePerCarat * caratWeight * count;
+                    }
+                }
+
+                configuration.EstimatedPrice = materialAdjustedPrice + stonesPrice;
+
+                _logger.LogInformation(
+                    "Price calculated for configuration {ConfigurationId}: {Price}",
+                    configuration.Id, configuration.EstimatedPrice);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogWarning(ex, "Failed to calculate price for configuration {ConfigurationId}, will use 0", configuration.Id);
+                configuration.EstimatedPrice = 0;
+            }
+        }
+
+        // Сохраняем изменения (SINGLE SaveChangesAsync call)
+        var saveStart = stopwatch.ElapsedMilliseconds;
+        _logger.LogInformation("Saving configuration {ConfigurationId} to database", configuration.Id);
+
+        await _context.SaveChangesAsync(ct);
+
+        // Commit the transaction
+        await transaction.CommitAsync(ct);
+
+        _logger.LogInformation(
+            "✅ Configuration saved and committed: id={ConfigurationId}, stones={StoneCount}, price={Price}, saveTime={SaveMs}ms, totalTime={TotalMs}ms",
+            configuration.Id, configuration.Stones?.Count ?? 0, configuration.EstimatedPrice,
+            stopwatch.ElapsedMilliseconds - saveStart, stopwatch.ElapsedMilliseconds);
+
+        // Audit log (fire-and-forget, non-blocking)
+        var isNewConfiguration = !configurationId.HasValue || configuration.CreatedAt == configuration.UpdatedAt;
+        _ = Task.Run(async () =>
+        {
+            await _auditService.LogActionAsync(
+                userId,
+                "JewelryConfiguration",
+                configuration.Id.ToString(),
+                isNewConfiguration ? "Created" : "Updated",
+                new { BaseModelId = baseModelId, MaterialId = materialId, StonesCount = request.Stones?.Count ?? 0 });
+        });
+
+        // FIXED: Load only missing navigation properties instead of full reload
+        // The configuration is already tracked with Stones and Engravings
+        // We only need to ensure BaseModel, Material, and StoneTypes are loaded
+
+        if (configuration.BaseModel == null)
+        {
+            await _context.Entry(configuration)
+                .Reference(c => c.BaseModel)
+                .Query()
+                .Include(bm => bm.Category)
+                .LoadAsync(ct);
+        }
+
+        if (configuration.Material == null)
+        {
+            await _context.Entry(configuration)
+                .Reference(c => c.Material)
+                .LoadAsync(ct);
+        }
+
+        // Load StoneType for each stone
+        if (configuration.Stones != null)
+        {
+            foreach (var stone in configuration.Stones)
+            {
+                if (stone.StoneType == null)
+                {
+                    await _context.Entry(stone)
+                        .Reference(s => s.StoneType)
+                        .LoadAsync(ct);
+                }
+            }
+        }
+
+        // Assets are not modified in this operation, load if needed
+        if (configuration.Assets == null || !configuration.Assets.Any())
+        {
+            await _context.Entry(configuration)
+                .Collection(c => c.Assets)
+                .LoadAsync(ct);
+        }
+
+        _logger.LogInformation(
+            "✅ Configuration fully loaded: id={ConfigurationId}, baseModelId={BaseModelId}, materialId={MaterialId}, stones={StoneCount}",
+            configuration.Id, configuration.BaseModelId, configuration.MaterialId, configuration.Stones?.Count ?? 0);
+
+        // Ensure navigation properties are loaded before mapping
+        if (configuration.BaseModel == null)
+        {
+            throw new InvalidOperationException($"BaseModel not loaded for configuration {configuration.Id}");
+        }
+
+        if (configuration.Material == null)
+        {
+            throw new InvalidOperationException($"Material not loaded for configuration {configuration.Id}");
+        }
+
+        return new JewelryConfigurationDetailDto
+        {
+            Id = configuration.Id,
+            UserId = configuration.UserId,
+            BaseModelId = configuration.BaseModelId,
+            MaterialId = configuration.MaterialId,
+            Name = configuration.Name,
+            Status = configuration.Status.ToString(),
+            ConfigJson = configuration.ConfigJson,
+            EstimatedPrice = configuration.EstimatedPrice,
+            CreatedAt = configuration.CreatedAt,
+            UpdatedAt = configuration.UpdatedAt,
+            BaseModel = new JewelryBaseModelDto
+            {
+                Id = configuration.BaseModel.Id,
+                CategoryId = configuration.BaseModel.CategoryId,
+                Name = configuration.BaseModel.Name,
+                Code = configuration.BaseModel.Code,
+                Description = configuration.BaseModel.Description,
+                PreviewImageUrl = configuration.BaseModel.PreviewImageUrl,
+                BasePrice = configuration.BaseModel.BasePrice
+            },
+            Material = new MaterialDto
+            {
+                Id = configuration.Material.Id,
+                Code = configuration.Material.Code,
+                Name = configuration.Material.Name,
+                MetalType = configuration.Material.MetalType,
+                Karat = configuration.Material.Karat,
+                ColorHex = configuration.Material.ColorHex,
+                PriceFactor = configuration.Material.PriceFactor
+            },
+            Stones = configuration.Stones?.Select(s => new ConfigurationStoneDto
+            {
+                Id = s.Id,
+                StoneTypeId = s.StoneTypeId,
+                StoneTypeName = s.StoneType?.Name ?? "Unknown",
+                PositionIndex = s.PositionIndex,
+                CaratWeight = s.CaratWeight,
+                SizeMm = s.SizeMm,
+                Count = s.Count,
+                PlacementDataJson = s.PlacementDataJson
+            }).ToList() ?? new List<ConfigurationStoneDto>(),
+            Engravings = configuration.Engravings?.Select(e => new ConfigurationEngravingDto
+            {
+                Id = e.Id,
+                Text = e.Text,
+                FontName = e.FontName,
+                Location = e.Location,
+                SizeMm = e.SizeMm,
+                IsInternal = e.IsInternal
+            }).ToList() ?? new List<ConfigurationEngravingDto>(),
+            Assets = configuration.Assets?.Select(a => new UploadedAssetDto
+            {
+                Id = a.Id,
+                FileType = a.FileType,
+                Url = a.Url,
+                OriginalFileName = a.OriginalFileName,
+                CreatedAt = a.CreatedAt
+            }).ToList() ?? new List<UploadedAssetDto>()
+        };
+        }
+        catch (DbUpdateConcurrencyException ex)
+        {
+            _logger.LogWarning(ex,
+                "Configuration {ConfigurationId} was modified or deleted (concurrency conflict). Total time: {TotalMs}ms",
+                configurationId, stopwatch.ElapsedMilliseconds);
+
+            await transaction.RollbackAsync(ct);
+
+            // Retry with creating new configuration
+            return await SaveOrUpdateConfigurationAsync(userId, null, baseModelId, materialId, request, ct);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex,
+                "Error saving configuration. Total time: {TotalMs}ms",
+                stopwatch.ElapsedMilliseconds);
+
+            await transaction.RollbackAsync(ct);
+            throw;
+        }
     }
 
     public async Task<bool> DeleteConfigurationAsync(
@@ -382,6 +849,13 @@ public class ConfigurationService : IConfigurationService
 
         _logger.LogInformation("Configuration {ConfigurationId} deleted for user {UserId}",
             configurationId, userId);
+
+        // Audit log
+        await _auditService.LogDeleteAsync(
+            userId,
+            "JewelryConfiguration",
+            configurationId.ToString(),
+            ct);
 
         return true;
     }

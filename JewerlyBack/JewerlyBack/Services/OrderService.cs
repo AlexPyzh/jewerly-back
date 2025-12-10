@@ -17,11 +17,12 @@ public class OrderService : IOrderService
     private readonly IPricingService _pricingService;
     private readonly IMapper _mapper;
     private readonly ILogger<OrderService> _logger;
+    private readonly IAuditService _auditService;
 
     /// <summary>
     /// Допустимые статусы конфигурации для создания заказа
     /// </summary>
-    private static readonly string[] AllowedConfigurationStatuses = ["Draft", "ReadyToOrder"];
+    private static readonly ConfigurationStatus[] AllowedConfigurationStatuses = [ConfigurationStatus.Draft, ConfigurationStatus.ReadyToOrder];
 
     /// <summary>
     /// Статусы заказа, которые можно отменить
@@ -32,12 +33,14 @@ public class OrderService : IOrderService
         AppDbContext context,
         IPricingService pricingService,
         IMapper mapper,
-        ILogger<OrderService> logger)
+        ILogger<OrderService> logger,
+        IAuditService auditService)
     {
         _context = context;
         _pricingService = pricingService;
         _mapper = mapper;
         _logger = logger;
+        _auditService = auditService;
     }
 
     /// <inheritdoc />
@@ -208,6 +211,14 @@ public class OrderService : IOrderService
             "Order {OrderNumber} created for user {UserId}. Items: {ItemCount}, Total: {TotalPrice} {Currency}",
             orderNumber, userId, orderItems.Count, totalPrice, order.Currency);
 
+        // Audit log
+        await _auditService.LogCreateAsync(
+            userId,
+            "Order",
+            order.Id.ToString(),
+            new { order.OrderNumber, ItemCount = orderItems.Count, order.TotalPrice, order.Currency },
+            ct);
+
         return order.Id;
     }
 
@@ -239,6 +250,15 @@ public class OrderService : IOrderService
         await _context.SaveChangesAsync(ct);
 
         _logger.LogInformation("Order {OrderNumber} cancelled by user {UserId}", order.OrderNumber, userId);
+
+        // Audit log
+        await _auditService.LogActionAsync(
+            userId,
+            "Order",
+            orderId.ToString(),
+            "Cancelled",
+            new { order.OrderNumber },
+            ct);
 
         return true;
     }

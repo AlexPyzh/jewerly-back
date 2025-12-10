@@ -11,11 +11,15 @@ namespace JewerlyBack.Application.Ai;
 public sealed class AiPromptBuilder : IAiPromptBuilder
 {
     private readonly ILogger<AiPromptBuilder> _logger;
+    private readonly ISemanticContextBuilder _semanticContextBuilder;
     private readonly JsonSerializerOptions _jsonOptions;
 
-    public AiPromptBuilder(ILogger<AiPromptBuilder> logger)
+    public AiPromptBuilder(
+        ILogger<AiPromptBuilder> logger,
+        ISemanticContextBuilder semanticContextBuilder)
     {
         _logger = logger;
+        _semanticContextBuilder = semanticContextBuilder;
         _jsonOptions = new JsonSerializerOptions
         {
             WriteIndented = true,
@@ -25,33 +29,28 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
 
     /// <summary>
     /// Строит промпт для генерации AI-превью на основе семантической конфигурации.
-    /// Включает текстовое описание + структурированный JSON для лучшего понимания AI моделью.
+    /// Использует семантический контекст для создания богатого описания изделия.
     /// </summary>
-    public Task<string> BuildPreviewPromptAsync(AiConfigDto aiConfig, CancellationToken ct = default)
+    public async Task<string> BuildPreviewPromptAsync(AiConfigDto aiConfig, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(aiConfig);
 
+        // Строим семантический контекст из конфигурации
+        var semanticContext = await _semanticContextBuilder.BuildSemanticContextAsync(aiConfig, ct);
+
         var prompt = new StringBuilder();
 
-        // === ЧАСТЬ 1: Текстовое описание изделия ===
-
-        // Базовое описание: стиль и качество
+        // === ЧАСТЬ 1: Основной визуальный промпт ===
         prompt.Append("Ultra high-quality studio render of ");
+        prompt.Append($"{aiConfig.MaterialName} {aiConfig.CategoryName.ToLowerInvariant()}");
 
-        // Материал
-        prompt.Append($"{aiConfig.MaterialName} ");
-
-        // Категория (тип изделия)
-        var categoryName = aiConfig.CategoryName.ToLowerInvariant();
-        prompt.Append($"{categoryName}");
-
-        // Детали базовой модели (если есть описание)
+        // Используем краткое описание базовой модели из старого поля для совместимости
         if (!string.IsNullOrWhiteSpace(aiConfig.BaseModelDescription))
         {
             prompt.Append($" ({aiConfig.BaseModelDescription.ToLowerInvariant()})");
         }
 
-        // Камни (если есть)
+        // Добавляем описание камней, если есть
         if (aiConfig.Stones?.Any() == true)
         {
             var stonesDescription = BuildStonesDescriptionFromDto(aiConfig.Stones);
@@ -65,25 +64,80 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
         prompt.Append(", minimalistic luxury jewelry, soft shadows, white background, ");
         prompt.Append("professional jewelry product photography, 8k, extremely detailed");
 
-        // === ЧАСТЬ 2: Структурированный JSON конфигурации ===
+        // === ЧАСТЬ 2: Семантический контекст (для улучшенного понимания AI) ===
+        if (semanticContext.HasContent)
+        {
+            prompt.AppendLine();
+            prompt.AppendLine();
+            prompt.AppendLine("--- Detailed Semantic Context ---");
+            prompt.AppendLine();
 
-        prompt.AppendLine();
-        prompt.AppendLine();
+            // Категория
+            if (!string.IsNullOrWhiteSpace(semanticContext.CategoryDescription))
+            {
+                prompt.AppendLine($"Category: {semanticContext.CategoryDescription}");
+                prompt.AppendLine();
+            }
+
+            // Базовая модель
+            if (!string.IsNullOrWhiteSpace(semanticContext.BaseModelDescription))
+            {
+                prompt.AppendLine($"Design: {semanticContext.BaseModelDescription}");
+                prompt.AppendLine();
+            }
+
+            // Материал
+            if (!string.IsNullOrWhiteSpace(semanticContext.MaterialDescription))
+            {
+                prompt.AppendLine($"Material: {semanticContext.MaterialDescription}");
+                prompt.AppendLine();
+            }
+
+            // Камни
+            if (!string.IsNullOrWhiteSpace(semanticContext.StonesDescription))
+            {
+                prompt.AppendLine($"Stones: {semanticContext.StonesDescription}");
+                prompt.AppendLine();
+            }
+
+            // Гравировка
+            if (!string.IsNullOrWhiteSpace(semanticContext.EngravingDescription))
+            {
+                prompt.AppendLine($"Engraving: {semanticContext.EngravingDescription}");
+                prompt.AppendLine();
+            }
+
+            // Дополнительный контекст
+            if (semanticContext.AdditionalContext?.Any() == true)
+            {
+                foreach (var kvp in semanticContext.AdditionalContext.OrderBy(x => x.Key))
+                {
+                    if (!string.IsNullOrWhiteSpace(kvp.Value))
+                    {
+                        prompt.AppendLine($"{kvp.Key}: {kvp.Value}");
+                        prompt.AppendLine();
+                    }
+                }
+            }
+        }
+
+        // === ЧАСТЬ 3: Структурированный JSON конфигурации ===
         prompt.AppendLine("--- Structured Configuration (JSON) ---");
-
         var configJson = JsonSerializer.Serialize(aiConfig, _jsonOptions);
         prompt.AppendLine(configJson);
 
         var result = prompt.ToString();
 
         _logger.LogInformation(
-            "Built AI prompt for configuration {ConfigurationId}: {Category} / {BaseModel} / {Material}",
+            "Built AI prompt with semantic context for configuration {ConfigurationId}. " +
+            "Semantic fields: Category={HasCategory}, BaseModel={HasBaseModel}, Material={HasMaterial}, Stones={HasStones}",
             aiConfig.ConfigurationId,
-            aiConfig.CategoryName,
-            aiConfig.BaseModelName,
-            aiConfig.MaterialName);
+            !string.IsNullOrWhiteSpace(semanticContext.CategoryDescription),
+            !string.IsNullOrWhiteSpace(semanticContext.BaseModelDescription),
+            !string.IsNullOrWhiteSpace(semanticContext.MaterialDescription),
+            !string.IsNullOrWhiteSpace(semanticContext.StonesDescription));
 
-        return Task.FromResult(result);
+        return result;
     }
 
     /// <summary>

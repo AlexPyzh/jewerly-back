@@ -6,6 +6,18 @@ namespace JewerlyBack.Application.Interfaces;
 public interface IPricingService
 {
     /// <summary>
+    /// Calculates price from components without database access
+    /// </summary>
+    /// <param name="basePrice">Base price of the jewelry model</param>
+    /// <param name="materialPriceFactor">Material price factor multiplier</param>
+    /// <param name="stones">Stone tuples: (pricePerCarat, caratWeight, count)</param>
+    /// <returns>Calculated total price</returns>
+    decimal CalculatePrice(
+        decimal basePrice,
+        decimal materialPriceFactor,
+        IEnumerable<(decimal pricePerCarat, decimal caratWeight, int count)> stones);
+
+    /// <summary>
     /// Рассчитывает примерную стоимость конфигурации ювелирного изделия
     /// </summary>
     /// <param name="configurationId">ID конфигурации</param>
@@ -13,10 +25,11 @@ public interface IPricingService
     /// <returns>Рассчитанная стоимость</returns>
     Task<decimal> CalculateConfigurationPriceAsync(Guid configurationId, CancellationToken ct = default);
 
-    // TODO: Методы для будущей расширенной логики:
-    // - Расчет стоимости материала по весу (с учётом курсов драгметаллов)
-    // - Расчет стоимости камней с учётом качества (огранка, чистота, цвет)
-    // - Расчет стоимости гравировки
-    // - Расчет стоимости работы мастера
-    // - Получение итоговой цены с учётом всех надбавок и скидок
+    /// <summary>
+    /// Calculates and saves the price to the configuration entity
+    /// </summary>
+    /// <param name="configurationId">ID конфигурации</param>
+    /// <param name="ct">Токен отмены</param>
+    /// <returns>Calculated and saved price</returns>
+    Task<decimal> CalculateAndSavePriceAsync(Guid configurationId, CancellationToken ct = default);
 }
