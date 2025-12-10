@@ -767,17 +767,15 @@ public class ConfigurationService : IConfigurationService
             "✅ Transaction committed: id={ConfigurationId}, totalTime={TotalMs}ms",
             configuration.Id, stopwatch.ElapsedMilliseconds);
 
-        // Audit log (fire-and-forget, non-blocking) - can run outside transaction
+        // Audit log - properly awaited to ensure completion
+        // AuditService uses IServiceScopeFactory to create its own DbContext scope
         var isNewConfiguration = !configurationId.HasValue || configuration.CreatedAt == configuration.UpdatedAt;
-        _ = Task.Run(async () =>
-        {
-            await _auditService.LogActionAsync(
-                userId,
-                "JewelryConfiguration",
-                configuration.Id.ToString(),
-                isNewConfiguration ? "Created" : "Updated",
-                new { BaseModelId = baseModelId, MaterialId = materialId, StonesCount = request.Stones?.Count ?? 0 });
-        });
+        await _auditService.LogActionAsync(
+            userId,
+            "JewelryConfiguration",
+            configuration.Id.ToString(),
+            isNewConfiguration ? "Created" : "Updated",
+            new { BaseModelId = baseModelId, MaterialId = materialId, StonesCount = request.Stones?.Count ?? 0 });
 
         // Ensure navigation properties are loaded before mapping
         if (configuration.BaseModel == null)

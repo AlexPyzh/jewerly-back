@@ -3,16 +3,20 @@ using JewerlyBack.Application.Interfaces;
 using JewerlyBack.Data;
 using JewerlyBack.Entities;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 
 namespace JewerlyBack.Services;
 
 /// <summary>
-/// Implementation of audit logging service
+/// Implementation of audit logging service.
+/// Uses IServiceScopeFactory to create fresh DbContext instances for each audit operation,
+/// ensuring audit logging works correctly even when called from fire-and-forget contexts
+/// or after the original HTTP request scope has ended.
 /// </summary>
 public class AuditService : IAuditService
 {
-    private readonly AppDbContext _context;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IHttpContextAccessor _httpContextAccessor;
     private readonly ILogger<AuditService> _logger;
 
@@ -23,11 +27,11 @@ public class AuditService : IAuditService
     };
 
     public AuditService(
-        AppDbContext context,
+        IServiceScopeFactory scopeFactory,
         IHttpContextAccessor httpContextAccessor,
         ILogger<AuditService> logger)
     {
-        _context = context;
+        _scopeFactory = scopeFactory;
         _httpContextAccessor = httpContextAccessor;
         _logger = logger;
     }
@@ -69,9 +73,24 @@ public class AuditService : IAuditService
         object? details = null,
         CancellationToken ct = default)
     {
+        _logger.LogDebug(
+            "Audit logging starting: {Action} {EntityType}/{EntityId} by user {UserId}",
+            action, entityType, entityId, userId);
+
         try
         {
+            // Capture HTTP context information before creating scope
+            // (HttpContext may not be available in the new scope)
             var httpContext = _httpContextAccessor.HttpContext;
+            var ipAddress = GetClientIpAddress(httpContext);
+            var userAgent = httpContext?.Request.Headers.UserAgent.FirstOrDefault();
+
+            // Create a new scope to get a fresh DbContext instance
+            // This ensures audit logging works even if called after the original request scope ends
+            using var scope = _scopeFactory.CreateScope();
+            var context = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            _logger.LogDebug("Audit: DbContext obtained from new scope for {EntityType}/{EntityId}", entityType, entityId);
 
             var auditLog = new AuditLog
             {
@@ -82,23 +101,23 @@ public class AuditService : IAuditService
                 Action = action,
                 Changes = details != null ? JsonSerializer.Serialize(details, JsonOptions) : null,
                 Timestamp = DateTimeOffset.UtcNow,
-                IpAddress = GetClientIpAddress(httpContext),
-                UserAgent = httpContext?.Request.Headers.UserAgent.FirstOrDefault()
+                IpAddress = ipAddress,
+                UserAgent = userAgent
             };
 
-            _context.AuditLogs.Add(auditLog);
-            await _context.SaveChangesAsync(ct);
+            context.AuditLogs.Add(auditLog);
+            await context.SaveChangesAsync(ct);
 
             _logger.LogDebug(
-                "Audit logged: {Action} {EntityType}/{EntityId} by user {UserId}",
+                "Audit record saved successfully: {Action} {EntityType}/{EntityId} by user {UserId}",
                 action, entityType, entityId, userId);
         }
         catch (Exception ex)
         {
             // Audit logging should not break the main flow
             _logger.LogWarning(ex,
-                "Failed to log audit event: {Action} {EntityType}/{EntityId}",
-                action, entityType, entityId);
+                "Failed to log audit event: {Action} {EntityType}/{EntityId} for user {UserId}. Exception: {ExceptionType} - {ExceptionMessage}",
+                action, entityType, entityId, userId, ex.GetType().Name, ex.Message);
         }
     }
 

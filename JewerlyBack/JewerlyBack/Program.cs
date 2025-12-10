@@ -398,7 +398,9 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAiPreviewService, AiPreviewService>();
-builder.Services.AddScoped<IAuditService, AuditService>();
+// AuditService uses IServiceScopeFactory to create its own DbContext scopes,
+// so it can safely be a Singleton (one instance reused for all requests)
+builder.Services.AddSingleton<IAuditService, AuditService>();
 
 // AI Services
 // Регистрация HttpClient для OpenAiImageProvider с интерфейсом IAiImageProvider
@@ -429,6 +431,25 @@ builder.Services.AddHostedService<AiPreviewBackgroundService>();
 // Build Application
 // ========================================
 var app = builder.Build();
+
+// ========================================
+// Log OpenAI Configuration (once at startup)
+// ========================================
+{
+    var openAiOptions = app.Services.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    Console.WriteLine();
+    Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
+    Console.WriteLine("│ 🤖 OpenAI Image Provider Configuration                      │");
+    Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│ Base URL:      {openAiOptions.BaseUrl,-45}│");
+    Console.WriteLine($"│ Model:         {openAiOptions.Model,-45}│");
+    Console.WriteLine($"│ Timeout:       {openAiOptions.TimeoutSeconds} seconds{new string(' ', 35)}│");
+    Console.WriteLine($"│ Max Retries:   {openAiOptions.MaxRetryAttempts,-45}│");
+    var apiKeyStatus = string.IsNullOrWhiteSpace(openAiOptions.ApiKey) ? "❌ NOT CONFIGURED" : "✅ Configured (hidden)";
+    Console.WriteLine($"│ API Key:       {apiKeyStatus,-45}│");
+    Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
+    Console.WriteLine();
+}
 
 // ========================================
 // Middleware Pipeline (ORDER MATTERS!)

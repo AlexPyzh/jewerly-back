@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using Amazon.S3;
 using Amazon.S3.Model;
 using Microsoft.Extensions.Options;
@@ -28,6 +29,16 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
         _s3Client = s3Client;
         _options = options.Value;
         _logger = logger;
+
+        // Log configuration on startup
+        Console.WriteLine();
+        Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
+        Console.WriteLine("│ 💾 S3 Storage Service Configuration                         │");
+        Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+        Console.WriteLine($"│ Service URL:   {_options.ServiceUrl,-44}│");
+        Console.WriteLine($"│ Bucket Name:   {_options.BucketName,-44}│");
+        Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
+        Console.WriteLine();
     }
 
     /// <inheritdoc />
@@ -35,6 +46,23 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileKey);
         ArgumentException.ThrowIfNullOrWhiteSpace(contentType);
+
+        // Get stream length for logging
+        var streamLength = stream.CanSeek ? stream.Length : -1;
+
+        Console.WriteLine();
+        Console.WriteLine("   ┌─────────────────────────────────────────────────────────┐");
+        Console.WriteLine("   │ 📤 S3 Upload Operation                                  │");
+        Console.WriteLine("   ├─────────────────────────────────────────────────────────┤");
+        Console.WriteLine($"   │ Bucket:       {_options.BucketName,-40}│");
+        Console.WriteLine($"   │ Key:          {(fileKey.Length > 40 ? fileKey[..37] + "..." : fileKey),-40}│");
+        Console.WriteLine($"   │ Content Type: {contentType,-40}│");
+        if (streamLength >= 0)
+        {
+            Console.WriteLine($"   │ File Size:    {streamLength:N0} bytes ({streamLength / 1024.0:F1} KB){new string(' ', 20)}│");
+        }
+        Console.WriteLine($"   │ ACL:          PublicRead{new string(' ', 30)}│");
+        Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
 
         var request = new PutObjectRequest
         {
@@ -47,21 +75,67 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
             CannedACL = S3CannedACL.PublicRead
         };
 
+        var uploadStopwatch = Stopwatch.StartNew();
+
         try
         {
+            Console.WriteLine("   📤 Uploading to S3...");
+
             var response = await _s3Client.PutObjectAsync(request, ct);
 
-            _logger.LogInformation(
-                "File uploaded to S3: {FileKey}, ETag: {ETag}, Status: {StatusCode}",
-                fileKey, response.ETag, response.HttpStatusCode);
+            uploadStopwatch.Stop();
 
-            return GetPublicUrl(fileKey);
+            Console.WriteLine($"   ✓ Upload completed in {uploadStopwatch.Elapsed.TotalSeconds:F2}s");
+            Console.WriteLine($"   ✓ HTTP Status: {(int)response.HttpStatusCode} {response.HttpStatusCode}");
+            Console.WriteLine($"   ✓ ETag: {response.ETag}");
+
+            var publicUrl = GetPublicUrl(fileKey);
+            Console.WriteLine($"   ✓ Public URL: {publicUrl}");
+
+            _logger.LogInformation(
+                "✅ File uploaded to S3: {FileKey}, ETag: {ETag}, Status: {StatusCode}, Duration: {Duration}s",
+                fileKey, response.ETag, response.HttpStatusCode, uploadStopwatch.Elapsed.TotalSeconds);
+
+            return publicUrl;
         }
         catch (AmazonS3Exception ex)
         {
+            uploadStopwatch.Stop();
+
+            Console.WriteLine();
+            Console.WriteLine("   ┌─────────────────────────────────────────────────────────┐");
+            Console.WriteLine("   │ ❌ S3 Upload Failed                                     │");
+            Console.WriteLine("   ├─────────────────────────────────────────────────────────┤");
+            Console.WriteLine($"   │ Error Code:   {ex.ErrorCode,-40}│");
+            Console.WriteLine($"   │ Status Code:  {(int)ex.StatusCode} {ex.StatusCode,-32}│");
+            Console.WriteLine($"   │ Request ID:   {ex.RequestId,-40}│");
+            var errorMsg = ex.Message.Length > 40 ? ex.Message[..37] + "..." : ex.Message;
+            Console.WriteLine($"   │ Message:      {errorMsg,-40}│");
+            Console.WriteLine($"   │ Duration:     {uploadStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 36)}│");
+            Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
+
             _logger.LogError(ex,
-                "S3 upload failed: {FileKey}, Error: {ErrorCode}, StatusCode: {StatusCode}, Message: {Message}, RequestId: {RequestId}",
-                fileKey, ex.ErrorCode, ex.StatusCode, ex.Message, ex.RequestId);
+                "❌ S3 upload failed: {FileKey}, Error: {ErrorCode}, StatusCode: {StatusCode}, Message: {Message}, RequestId: {RequestId}, Duration: {Duration}s",
+                fileKey, ex.ErrorCode, ex.StatusCode, ex.Message, ex.RequestId, uploadStopwatch.Elapsed.TotalSeconds);
+            throw;
+        }
+        catch (Exception ex)
+        {
+            uploadStopwatch.Stop();
+
+            Console.WriteLine();
+            Console.WriteLine("   ┌─────────────────────────────────────────────────────────┐");
+            Console.WriteLine("   │ ❌ S3 Upload Failed (Non-S3 Error)                      │");
+            Console.WriteLine("   ├─────────────────────────────────────────────────────────┤");
+            Console.WriteLine($"   │ Error Type:   {ex.GetType().Name,-40}│");
+            var errorMsg = ex.Message.Length > 40 ? ex.Message[..37] + "..." : ex.Message;
+            Console.WriteLine($"   │ Message:      {errorMsg,-40}│");
+            Console.WriteLine($"   │ Duration:     {uploadStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 36)}│");
+            Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
+
+            _logger.LogError(ex,
+                "❌ S3 upload failed with non-S3 error: {FileKey}, Error: {Error}, Duration: {Duration}s",
+                fileKey, ex.Message, uploadStopwatch.Elapsed.TotalSeconds);
             throw;
         }
     }

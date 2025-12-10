@@ -41,7 +41,7 @@ public sealed class OpenAiOptions
     /// <summary>
     /// Таймаут для HTTP-запросов к OpenAI API в секундах.
     /// </summary>
-    public int TimeoutSeconds { get; init; } = 120;
+    public int TimeoutSeconds { get; init; } = 30;
 
     /// <summary>
     /// Максимальное количество повторных попыток при ошибках.

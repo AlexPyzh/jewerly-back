@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
@@ -42,47 +43,107 @@ public sealed class OpenAiImageProvider : IAiImageProvider
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(prompt);
 
+        Console.WriteLine();
+        Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
+        Console.WriteLine("│ 🖼️  SINGLE IMAGE GENERATION                                  │");
+        Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+        Console.WriteLine($"│ Job ID:          {jobId,-42}│");
+        Console.WriteLine($"│ Configuration:   {configurationId,-42}│");
+        Console.WriteLine($"│ Prompt Length:   {prompt.Length} characters{new string(' ', 30)}│");
+        Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
+
         _logger.LogInformation(
-            "Starting single AI image generation. ConfigurationId: {ConfigurationId}, JobId: {JobId}",
+            "🖼️ Starting single AI image generation. ConfigurationId: {ConfigurationId}, JobId: {JobId}",
             configurationId, jobId);
 
         // Check if API key is configured
         if (string.IsNullOrWhiteSpace(_options.ApiKey))
         {
+            Console.WriteLine();
+            Console.WriteLine("⚠️  [OpenAI] API Key NOT configured - using placeholder image");
+            Console.WriteLine("   Set OPENAI_API_KEY environment variable for real AI generation");
+            Console.WriteLine();
+
             _logger.LogWarning(
-                "OpenAI API key not configured. Returning placeholder image URL for development. " +
+                "⚠️ OpenAI API key not configured. Returning placeholder image URL for development. " +
                 "ConfigurationId: {ConfigurationId}, JobId: {JobId}",
                 configurationId, jobId);
 
             // Return a placeholder image URL for development
-            return "https://via.placeholder.com/1024x1024/DAA520/FFFFFF?text=AI+Preview+Placeholder";
+            var placeholderUrl = "https://via.placeholder.com/1024x1024/DAA520/FFFFFF?text=AI+Preview+Placeholder";
+            Console.WriteLine($"   Placeholder URL: {placeholderUrl}");
+            return placeholderUrl;
         }
+
+        var totalStopwatch = Stopwatch.StartNew();
 
         try
         {
-            // 1. Вызов OpenAI Images API
+            // ===== STEP 1: Generate image via OpenAI API =====
+            Console.WriteLine();
+            Console.WriteLine("   📡 Step 1: Calling OpenAI API...");
+            var apiStopwatch = Stopwatch.StartNew();
+
             var imageBytes = await GenerateImageBytesAsync(prompt, ct);
 
-            // 2. Формирование пути в S3
+            apiStopwatch.Stop();
+            Console.WriteLine($"   ✓ OpenAI API responded in {apiStopwatch.Elapsed.TotalSeconds:F2}s");
+            Console.WriteLine($"   ✓ Image size: {imageBytes.Length:N0} bytes ({imageBytes.Length / 1024.0:F1} KB)");
+
+            // ===== STEP 2: Upload to S3 =====
             var fileKey = $"ai-previews/{configurationId}/{jobId}/preview.png";
 
-            // 3. Загрузка в S3
-            _logger.LogDebug("Uploading generated image to S3: {FileKey}", fileKey);
+            Console.WriteLine();
+            Console.WriteLine("   💾 Step 2: Uploading to S3 storage...");
+            Console.WriteLine($"   Target bucket key: {fileKey}");
+            Console.WriteLine($"   Content type: image/png");
+            Console.WriteLine($"   File size: {imageBytes.Length:N0} bytes");
+
+            var uploadStopwatch = Stopwatch.StartNew();
 
             using var stream = new MemoryStream(imageBytes);
             var publicUrl = await _s3Storage.UploadAsync(stream, fileKey, "image/png", ct);
 
+            uploadStopwatch.Stop();
+            Console.WriteLine($"   ✓ Upload completed in {uploadStopwatch.Elapsed.TotalSeconds:F2}s");
+            Console.WriteLine($"   ✓ Public URL: {publicUrl}");
+
+            totalStopwatch.Stop();
+
+            Console.WriteLine();
+            Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
+            Console.WriteLine("│ ✅ SINGLE IMAGE GENERATION COMPLETE                         │");
+            Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+            Console.WriteLine($"│ Total time:    {totalStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 43)}│");
+            Console.WriteLine($"│ API time:      {apiStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 43)}│");
+            Console.WriteLine($"│ Upload time:   {uploadStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 43)}│");
+            Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
+            Console.WriteLine();
+
             _logger.LogInformation(
-                "Single AI image generated successfully. JobId: {JobId}, URL: {Url}",
-                jobId, publicUrl);
+                "✅ Single AI image generated successfully. JobId: {JobId}, URL: {Url}, TotalTime: {TotalTime}s, ApiTime: {ApiTime}s, UploadTime: {UploadTime}s",
+                jobId, publicUrl, totalStopwatch.Elapsed.TotalSeconds, apiStopwatch.Elapsed.TotalSeconds, uploadStopwatch.Elapsed.TotalSeconds);
 
             return publicUrl;
         }
         catch (Exception ex)
         {
+            totalStopwatch.Stop();
+
+            Console.WriteLine();
+            Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
+            Console.WriteLine("│ ❌ SINGLE IMAGE GENERATION FAILED                           │");
+            Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+            Console.WriteLine($"│ Error Type:    {ex.GetType().Name,-44}│");
+            var errorMsg = ex.Message.Length > 44 ? ex.Message[..41] + "..." : ex.Message;
+            Console.WriteLine($"│ Error:         {errorMsg,-44}│");
+            Console.WriteLine($"│ Time elapsed:  {totalStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 43)}│");
+            Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
+            Console.WriteLine();
+
             _logger.LogError(ex,
-                "Failed to generate single AI image. ConfigurationId: {ConfigurationId}, JobId: {JobId}",
-                configurationId, jobId);
+                "❌ Failed to generate single AI image. ConfigurationId: {ConfigurationId}, JobId: {JobId}, Duration: {Duration}s",
+                configurationId, jobId, totalStopwatch.Elapsed.TotalSeconds);
             throw;
         }
     }
@@ -195,17 +256,70 @@ public sealed class OpenAiImageProvider : IAiImageProvider
             DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         });
 
-        _logger.LogDebug("Sending request to OpenAI: {Request}", requestJson);
+        // Log HTTP request details
+        Console.WriteLine();
+        Console.WriteLine("   ┌─────────────────────────────────────────────────────────┐");
+        Console.WriteLine("   │ 🌐 OpenAI API Request                                   │");
+        Console.WriteLine("   ├─────────────────────────────────────────────────────────┤");
+        Console.WriteLine($"   │ Endpoint:     POST {_httpClient.BaseAddress}images/generations");
+        Console.WriteLine($"   │ Model:        {_options.Model,-40}│");
+        Console.WriteLine($"   │ Size:         1024x1024{new string(' ', 31)}│");
+        Console.WriteLine($"   │ Quality:      standard{new string(' ', 32)}│");
+        Console.WriteLine($"   │ Format:       b64_json{new string(' ', 32)}│");
+        Console.WriteLine($"   │ Prompt size:  {prompt.Length} chars{new string(' ', 35)}│");
+        Console.WriteLine("   │ Auth:         Bearer ***...*** (hidden){new string(' ', 15)}│");
+        Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
+
+        _logger.LogDebug("Sending request to OpenAI. Model={Model}, Size=1024x1024, PromptLength={PromptLength}",
+            _options.Model, prompt.Length);
+
+        var httpStopwatch = Stopwatch.StartNew();
 
         using var content = new StringContent(requestJson, Encoding.UTF8, "application/json");
+
+        Console.WriteLine("   📤 Sending HTTP POST request to DALL-E...");
+        Console.WriteLine($"   ⏱️  Waiting for DALL-E response (this may take 30-120 seconds)...");
+
         using var httpResponse = await _httpClient.PostAsync("images/generations", content, ct);
+
+        httpStopwatch.Stop();
+
+        // Log HTTP response details
+        Console.WriteLine();
+        Console.WriteLine("   ┌─────────────────────────────────────────────────────────┐");
+        Console.WriteLine("   │ ✅ DALL-E CONNECTION SUCCESSFUL                         │");
+        Console.WriteLine("   ├─────────────────────────────────────────────────────────┤");
+        Console.WriteLine($"   │ Response Time:  {httpStopwatch.Elapsed.TotalSeconds:F2}s{new string(' ', 37)}│");
+        Console.WriteLine($"   │ HTTP Status:    {(int)httpResponse.StatusCode} {httpResponse.StatusCode,-35}│");
+        Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
 
         // Обработка ошибок
         if (!httpResponse.IsSuccessStatusCode)
         {
             var errorBody = await httpResponse.Content.ReadAsStringAsync(ct);
+
+            Console.WriteLine();
+            Console.WriteLine("   ┌─────────────────────────────────────────────────────────┐");
+            Console.WriteLine("   │ ❌ OpenAI API Error Response                            │");
+            Console.WriteLine("   ├─────────────────────────────────────────────────────────┤");
+            Console.WriteLine($"   │ Status Code: {(int)httpResponse.StatusCode} {httpResponse.StatusCode,-34}│");
+            Console.WriteLine("   │ Response Body:                                          │");
+
+            // Print error body with line wrapping
+            var errorLines = errorBody.Split('\n');
+            foreach (var line in errorLines.Take(10))
+            {
+                var truncatedLine = line.Length > 55 ? line[..52] + "..." : line;
+                Console.WriteLine($"   │ {truncatedLine,-55}│");
+            }
+            if (errorLines.Length > 10)
+            {
+                Console.WriteLine($"   │ ... ({errorLines.Length - 10} more lines)                              │");
+            }
+            Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
+
             _logger.LogError(
-                "OpenAI API returned error. Status: {StatusCode}, Body: {Body}",
+                "❌ OpenAI API returned error. Status: {StatusCode}, Body: {Body}",
                 httpResponse.StatusCode, errorBody);
 
             throw new InvalidOperationException(
@@ -214,7 +328,10 @@ public sealed class OpenAiImageProvider : IAiImageProvider
 
         // Парсинг ответа
         var responseJson = await httpResponse.Content.ReadAsStringAsync(ct);
-        _logger.LogDebug("Received response from OpenAI: {Response}", responseJson);
+
+        Console.WriteLine($"   Response size: {responseJson.Length:N0} characters");
+
+        _logger.LogDebug("Received response from OpenAI. ResponseLength={ResponseLength}", responseJson.Length);
 
         var response = JsonSerializer.Deserialize<OpenAiImageResponse>(responseJson, new JsonSerializerOptions
         {
@@ -223,24 +340,37 @@ public sealed class OpenAiImageProvider : IAiImageProvider
 
         if (response?.Data == null || response.Data.Count == 0)
         {
+            Console.WriteLine("   ❌ OpenAI API returned empty data!");
             throw new InvalidOperationException("OpenAI API returned empty data");
         }
+
+        Console.WriteLine($"   ✓ Received {response.Data.Count} image(s) in response");
 
         var imageData = response.Data[0];
 
         // Обработка base64 или URL
         if (!string.IsNullOrEmpty(imageData.B64Json))
         {
-            _logger.LogDebug("Decoding base64 image");
-            return Convert.FromBase64String(imageData.B64Json);
+            Console.WriteLine("   📦 Decoding base64 image...");
+            var imageBytes = Convert.FromBase64String(imageData.B64Json);
+            Console.WriteLine($"   ✓ Decoded image: {imageBytes.Length:N0} bytes");
+            _logger.LogDebug("Decoded base64 image. Size={Size} bytes", imageBytes.Length);
+            return imageBytes;
         }
         else if (!string.IsNullOrEmpty(imageData.Url))
         {
-            _logger.LogDebug("Downloading image from URL: {Url}", imageData.Url);
-            return await _httpClient.GetByteArrayAsync(imageData.Url, ct);
+            Console.WriteLine($"   📥 Downloading image from URL: {imageData.Url[..Math.Min(50, imageData.Url.Length)]}...");
+            var downloadStopwatch = Stopwatch.StartNew();
+            var imageBytes = await _httpClient.GetByteArrayAsync(imageData.Url, ct);
+            downloadStopwatch.Stop();
+            Console.WriteLine($"   ✓ Downloaded image: {imageBytes.Length:N0} bytes in {downloadStopwatch.Elapsed.TotalSeconds:F2}s");
+            _logger.LogDebug("Downloaded image from URL. Size={Size} bytes, Duration={Duration}s",
+                imageBytes.Length, downloadStopwatch.Elapsed.TotalSeconds);
+            return imageBytes;
         }
         else
         {
+            Console.WriteLine("   ❌ OpenAI API response doesn't contain b64_json or url!");
             throw new InvalidOperationException(
                 "OpenAI API response doesn't contain b64_json or url");
         }

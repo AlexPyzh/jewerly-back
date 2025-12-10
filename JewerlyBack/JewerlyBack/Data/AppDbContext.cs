@@ -392,7 +392,7 @@ public class AppDbContext : DbContext
                 .IsRequired();
 
             entity.Property(e => e.Prompt)
-                .HasMaxLength(2000);
+                .HasMaxLength(8000); // Increased for longer AI prompts with detailed context
 
             entity.Property(e => e.ErrorMessage)
                 .HasMaxLength(1000);
