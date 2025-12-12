@@ -42,8 +42,8 @@ public sealed class SemanticContextBuilder : ISemanticContextBuilder
             // Will be populated when StoneType entity gets AiDescription field
             StonesDescription = BuildStonesDescription(aiConfig),
 
-            // Engraving description - future implementation
-            EngravingDescription = null,
+            // Engraving description - built from user's personalized text
+            EngravingDescription = BuildEngravingDescription(aiConfig),
 
             // Additional context for extensibility
             AdditionalContext = BuildAdditionalContext(aiConfig)
@@ -51,12 +51,13 @@ public sealed class SemanticContextBuilder : ISemanticContextBuilder
 
         _logger.LogDebug(
             "Built semantic context for configuration {ConfigurationId}. " +
-            "Category: {HasCategory}, BaseModel: {HasBaseModel}, Material: {HasMaterial}, Stones: {HasStones}",
+            "Category: {HasCategory}, BaseModel: {HasBaseModel}, Material: {HasMaterial}, Stones: {HasStones}, Engraving: {HasEngraving}",
             aiConfig.ConfigurationId,
             !string.IsNullOrWhiteSpace(context.CategoryDescription),
             !string.IsNullOrWhiteSpace(context.BaseModelDescription),
             !string.IsNullOrWhiteSpace(context.MaterialDescription),
-            !string.IsNullOrWhiteSpace(context.StonesDescription));
+            !string.IsNullOrWhiteSpace(context.StonesDescription),
+            !string.IsNullOrWhiteSpace(context.EngravingDescription));
 
         return Task.FromResult(context);
     }
@@ -197,6 +198,57 @@ public sealed class SemanticContextBuilder : ISemanticContextBuilder
         description.Append('.');
 
         return description.ToString();
+    }
+
+    /// <summary>
+    /// Builds a descriptive text for engraving.
+    /// Formats the user's personalized message for AI prompt.
+    /// </summary>
+    private string? BuildEngravingDescription(AiConfigDto aiConfig)
+    {
+        if (string.IsNullOrWhiteSpace(aiConfig.EngravingText))
+        {
+            return null;
+        }
+
+        // Sanitize the engraving text for AI prompt
+        var sanitizedText = SanitizeEngravingText(aiConfig.EngravingText.Trim());
+
+        if (string.IsNullOrEmpty(sanitizedText))
+        {
+            return null;
+        }
+
+        return $"Personalized with engraved text that says '{sanitizedText}'.";
+    }
+
+    /// <summary>
+    /// Sanitizes engraving text for inclusion in AI prompt.
+    /// Removes or escapes characters that might confuse the AI model.
+    /// </summary>
+    private static string SanitizeEngravingText(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+        {
+            return string.Empty;
+        }
+
+        // Remove potential prompt injection characters and control characters
+        var sanitized = text
+            .Replace("\"", "'")  // Replace double quotes with single
+            .Replace("\\", "")   // Remove backslashes
+            .Replace("\n", " ")  // Replace newlines with spaces
+            .Replace("\r", "")   // Remove carriage returns
+            .Replace("\t", " "); // Replace tabs with spaces
+
+        // Limit length to prevent overly long engravings from dominating the prompt
+        const int maxLength = 50;
+        if (sanitized.Length > maxLength)
+        {
+            sanitized = sanitized[..maxLength];
+        }
+
+        return sanitized.Trim();
     }
 
     /// <summary>

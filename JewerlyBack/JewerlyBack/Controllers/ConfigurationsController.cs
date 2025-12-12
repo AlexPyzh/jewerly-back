@@ -178,6 +178,7 @@ public class ConfigurationsController : ControllerBase
                 Name = request.Name,
                 ConfigJson = request.ConfigJson,
                 Status = request.Status,
+                EngravingText = request.EngravingText,
                 Stones = request.Stones,
                 Engravings = request.Engravings
             };

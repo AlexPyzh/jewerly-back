@@ -99,6 +99,8 @@ public class AiPreviewService : IAiPreviewService
             };
 
             // Строим семантический AI конфиг и сохраняем его в job
+            // Note: AiConfig is saved to job but NOT logged here.
+            // The actual prompt will be logged in AiPreviewBackgroundService when generation is triggered.
             try
             {
                 var aiConfig = await _aiConfigBuilder.BuildForConfigurationAsync(
@@ -107,10 +109,6 @@ public class AiPreviewService : IAiPreviewService
                     ct);
 
                 job.AiConfigJson = JsonSerializer.Serialize(aiConfig, _jsonOptions);
-
-                _logger.LogInformation(
-                    "✅ AI Config built for job {JobId}:\n{AiConfigJson}",
-                    job.Id, job.AiConfigJson);
             }
             catch (Exception ex)
             {
@@ -202,6 +200,8 @@ public class AiPreviewService : IAiPreviewService
             };
 
             // Строим семантический AI конфиг и сохраняем его в job
+            // Note: AiConfig is saved to job but NOT logged here.
+            // The actual prompt will be logged in AiPreviewBackgroundService when generation is triggered.
             try
             {
                 var aiConfig = await _aiConfigBuilder.BuildForConfigurationAsync(
@@ -210,10 +210,6 @@ public class AiPreviewService : IAiPreviewService
                     ct);
 
                 job.AiConfigJson = JsonSerializer.Serialize(aiConfig, _jsonOptions);
-
-                _logger.LogInformation(
-                    "✅ AI Config built for guest job {JobId}:\n{AiConfigJson}",
-                    job.Id, job.AiConfigJson);
             }
             catch (Exception ex)
             {

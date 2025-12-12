@@ -345,26 +345,26 @@ builder.Services.AddSingleton<IAmazonS3>(_ =>
 builder.Services.AddSingleton<IS3StorageService, S3StorageService>();
 
 // ========================================
-// OpenAI Configuration
+// Leonardo AI Configuration
 // ========================================
 // ВАЖНО: ApiKey НЕ хранится в appsettings.json!
-// ApiKey загружается из переменной окружения OPENAI_API_KEY.
+// ApiKey загружается из переменной окружения LEONARDO_API_KEY.
 //
 // Установка ключа:
-// - Development: export OPENAI_API_KEY=sk-...
+// - Development: export LEONARDO_API_KEY=...
 // - Docker: environment в docker-compose.yml
 // - Heroku/Render: Config Vars / Environment Variables
-// - GitHub Actions: secrets.OPENAI_API_KEY
+// - GitHub Actions: secrets.LEONARDO_API_KEY
 //
 // Валидация ApiKey:
 // - В Production: обязательна, приложение не запустится без ключа
 // - В Development: опциональна, можно работать без ключа (для тестирования UI/DB)
-var optionsBuilder = builder.Services
-    .AddOptions<OpenAiOptions>()
-    .Bind(builder.Configuration.GetSection(OpenAiOptions.SectionName))
+var leonardoOptionsBuilder = builder.Services
+    .AddOptions<LeonardoAiOptions>()
+    .Bind(builder.Configuration.GetSection(LeonardoAiOptions.SectionName))
     .Configure(options =>
     {
-        var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        var envKey = Environment.GetEnvironmentVariable("LEONARDO_API_KEY");
         if (!string.IsNullOrWhiteSpace(envKey))
         {
             options.ApiKey = envKey;
@@ -374,9 +374,9 @@ var optionsBuilder = builder.Services
 // Validate API key only in Production
 if (!builder.Environment.IsDevelopment())
 {
-    optionsBuilder
+    leonardoOptionsBuilder
         .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
-            "OPENAI_API_KEY must be provided in Production. Set it as an environment variable.")
+            "LEONARDO_API_KEY must be provided in Production. Set it as an environment variable.")
         .ValidateOnStart();
 }
 
@@ -403,10 +403,10 @@ builder.Services.AddScoped<IAiPreviewService, AiPreviewService>();
 builder.Services.AddSingleton<IAuditService, AuditService>();
 
 // AI Services
-// Регистрация HttpClient для OpenAiImageProvider с интерфейсом IAiImageProvider
-builder.Services.AddHttpClient<IAiImageProvider, OpenAiImageProvider>((sp, client) =>
+// Регистрация HttpClient для LeonardoAiImageProvider с интерфейсом IAiImageProvider
+builder.Services.AddHttpClient<IAiImageProvider, LeonardoAiImageProvider>((sp, client) =>
 {
-    var options = sp.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    var options = sp.GetRequiredService<IOptions<LeonardoAiOptions>>().Value;
     // Ensure BaseUrl ends with / for proper relative URL resolution
     var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
     client.BaseAddress = new Uri(baseUrl);
@@ -433,19 +433,23 @@ builder.Services.AddHostedService<AiPreviewBackgroundService>();
 var app = builder.Build();
 
 // ========================================
-// Log OpenAI Configuration (once at startup)
+// Log Leonardo AI Configuration (once at startup)
 // ========================================
 {
-    var openAiOptions = app.Services.GetRequiredService<IOptions<OpenAiOptions>>().Value;
+    var leonardoOptions = app.Services.GetRequiredService<IOptions<LeonardoAiOptions>>().Value;
     Console.WriteLine();
     Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
-    Console.WriteLine("│ 🤖 OpenAI Image Provider Configuration                      │");
+    Console.WriteLine("│ 🎨 Leonardo AI Image Provider Configuration                 │");
     Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
-    Console.WriteLine($"│ Base URL:      {openAiOptions.BaseUrl,-45}│");
-    Console.WriteLine($"│ Model:         {openAiOptions.Model,-45}│");
-    Console.WriteLine($"│ Timeout:       {openAiOptions.TimeoutSeconds} seconds{new string(' ', 35)}│");
-    Console.WriteLine($"│ Max Retries:   {openAiOptions.MaxRetryAttempts,-45}│");
-    var apiKeyStatus = string.IsNullOrWhiteSpace(openAiOptions.ApiKey) ? "❌ NOT CONFIGURED" : "✅ Configured (hidden)";
+    Console.WriteLine($"│ Base URL:      {leonardoOptions.BaseUrl,-45}│");
+    Console.WriteLine($"│ Model ID:      {leonardoOptions.ModelId,-45}│");
+    Console.WriteLine($"│ Image Size:    {leonardoOptions.ImageWidth}x{leonardoOptions.ImageHeight}{new string(' ', 37)}│");
+    Console.WriteLine($"│ Timeout:       {leonardoOptions.TimeoutSeconds} seconds{new string(' ', 35)}│");
+    Console.WriteLine($"│ Poll Interval: {leonardoOptions.PollingIntervalSeconds} seconds{new string(' ', 36)}│");
+    Console.WriteLine($"│ Max Attempts:  {leonardoOptions.MaxPollingAttempts,-45}│");
+    Console.WriteLine($"│ PhotoReal:     {leonardoOptions.PhotoReal,-45}│");
+    Console.WriteLine($"│ Alchemy:       {leonardoOptions.Alchemy,-45}│");
+    var apiKeyStatus = string.IsNullOrWhiteSpace(leonardoOptions.ApiKey) ? "❌ NOT CONFIGURED" : "✅ Configured (hidden)";
     Console.WriteLine($"│ API Key:       {apiKeyStatus,-45}│");
     Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
     Console.WriteLine();

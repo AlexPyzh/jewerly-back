@@ -322,27 +322,10 @@ public sealed class AiPreviewBackgroundService : BackgroundService
             Console.WriteLine($"   ✓ Prompt built in {promptStopwatch.ElapsedMilliseconds}ms");
             Console.WriteLine($"   Prompt length: {prompt.Length} characters");
             Console.WriteLine();
-            Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
-            Console.WriteLine("│ 🎨 GENERATED AI PROMPT                                      │");
-            Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
 
-            // Print prompt with line wrapping
-            var promptLines = prompt.Split('\n');
-            foreach (var line in promptLines.Take(30)) // Limit to first 30 lines
-            {
-                var truncatedLine = line.Length > 60 ? line[..57] + "..." : line;
-                Console.WriteLine($"│ {truncatedLine,-60}│");
-            }
-            if (promptLines.Length > 30)
-            {
-                Console.WriteLine($"│ ... ({promptLines.Length - 30} more lines) ...                              │");
-            }
-            Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
-            Console.WriteLine();
-
-            _logger.LogInformation(
-                "🎨 Generated AI Prompt for job {JobId}. Length={PromptLength} chars",
-                job.Id, prompt.Length);
+            // Log the FULL prompt - this is the ONLY place where the prompt should be logged
+            // Uses exact format "AI PREVIEW PROMPT\n{prompt}" for easy searching/parsing
+            _logger.LogInformation("AI PREVIEW PROMPT\n{Prompt}", prompt);
 
             // 4. Генерируем изображение в зависимости от типа WITH TIMEOUT
             Console.WriteLine("📝 Step 4: Generating AI image...");

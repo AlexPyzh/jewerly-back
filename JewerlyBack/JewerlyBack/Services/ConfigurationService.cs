@@ -109,6 +109,7 @@ public class ConfigurationService : IConfigurationService
             Name = configuration.Name,
             Status = configuration.Status.ToString(),
             ConfigJson = configuration.ConfigJson,
+            EngravingText = configuration.EngravingText,
             EstimatedPrice = configuration.EstimatedPrice,
             CreatedAt = configuration.CreatedAt,
             UpdatedAt = configuration.UpdatedAt,
@@ -301,6 +302,14 @@ public class ConfigurationService : IConfigurationService
             {
                 throw new ArgumentException($"Invalid status value: {request.Status}");
             }
+        }
+
+        // Update engraving text (allow clearing with empty string or null)
+        if (request.EngravingText != null)
+        {
+            configuration.EngravingText = string.IsNullOrWhiteSpace(request.EngravingText)
+                ? null
+                : request.EngravingText.Trim();
         }
 
         // Обновление камней
@@ -505,6 +514,7 @@ public class ConfigurationService : IConfigurationService
                         ? parsedStatus
                         : throw new ArgumentException($"Invalid status value: {request.Status}"),
                 ConfigJson = request.ConfigJson,
+                EngravingText = request.EngravingText?.Trim(),
                 CreatedAt = now,
                 UpdatedAt = now,
                 Stones = new List<JewelryConfigurationStone>(),
@@ -553,6 +563,14 @@ public class ConfigurationService : IConfigurationService
                 {
                     throw new ArgumentException($"Invalid status value: {request.Status}");
                 }
+            }
+
+            // Update engraving text (allow clearing with empty string or null)
+            if (request.EngravingText != null)
+            {
+                configuration.EngravingText = string.IsNullOrWhiteSpace(request.EngravingText)
+                    ? null
+                    : request.EngravingText.Trim();
             }
 
             configuration.UpdatedAt = DateTimeOffset.UtcNow;
@@ -797,6 +815,7 @@ public class ConfigurationService : IConfigurationService
             Name = configuration.Name,
             Status = configuration.Status.ToString(),
             ConfigJson = configuration.ConfigJson,
+            EngravingText = configuration.EngravingText,
             EstimatedPrice = configuration.EstimatedPrice,
             CreatedAt = configuration.CreatedAt,
             UpdatedAt = configuration.UpdatedAt,

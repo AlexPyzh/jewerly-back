@@ -9,6 +9,12 @@ public class JewelryConfigurationDetailDto
     public string? Name { get; set; }
     public string Status { get; set; } = string.Empty;
     public string? ConfigJson { get; set; }
+
+    /// <summary>
+    /// Simple engraving text for MVP (optional personalization message)
+    /// </summary>
+    public string? EngravingText { get; set; }
+
     public decimal? EstimatedPrice { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }

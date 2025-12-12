@@ -3,6 +3,7 @@ using System;
 using JewerlyBack.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JewerlyBack.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251210231950_AddEngravingTextToConfiguration")]
+    partial class AddEngravingTextToConfiguration
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -236,7 +239,7 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("10000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A classic solid band ring with a smooth, even surface and medium width. The profile is gently rounded for everyday wear.",
+                            AiDescription = "A classic solid band ring with a smooth, even surface and medium width, without any stones or engravings. The profile is gently rounded for everyday wear.",
                             BasePrice = 250.0m,
                             CategoryId = 1,
                             Code = "classic_solid_band",
@@ -720,7 +723,7 @@ namespace JewerlyBack.Migrations
                         new
                         {
                             Id = new Guid("e0000000-0000-0000-0000-000000000001"),
-                            AiDescription = "A simple Latin cross pendant with clean straight arms and a slightly elongated vertical bar.",
+                            AiDescription = "A simple Latin cross pendant with clean straight arms and a slightly elongated vertical bar, without stones or engravings.",
                             BasePrice = 150.0m,
                             CategoryId = 14,
                             Code = "plain_latin_cross",

@@ -44,6 +44,12 @@ public class JewelryConfigurationSaveRequest
     public string? Status { get; set; }
 
     /// <summary>
+    /// Simple engraving text for MVP (optional personalization message)
+    /// </summary>
+    [MaxLength(100, ErrorMessage = "EngravingText must not exceed 100 characters")]
+    public string? EngravingText { get; set; }
+
+    /// <summary>
     /// Список камней в конфигурации (опционально)
     /// </summary>
     public List<ConfigurationStoneDto>? Stones { get; set; }

@@ -231,6 +231,9 @@ public class AppDbContext : DbContext
             entity.Property(e => e.Status)
                 .IsRequired();
 
+            entity.Property(e => e.EngravingText)
+                .HasMaxLength(100);
+
             entity.Property(e => e.EstimatedPrice)
                 .HasPrecision(18, 2);
 
@@ -821,7 +824,7 @@ public class AppDbContext : DbContext
                 Code = "classic_solid_band",
                 Name = "Classic Solid Band",
                 Description = "Simple solid metal band with smooth polished surface, uniform width throughout",
-                AiDescription = "A classic solid band ring with a smooth, even surface and medium width, without any stones or engravings. The profile is gently rounded for everyday wear.",
+                AiDescription = "A classic solid band ring with a smooth, even surface and medium width. The profile is gently rounded for everyday wear.",
                 BasePrice = 250.0m,
                 IsActive = true
             },
@@ -1345,7 +1348,7 @@ public class AppDbContext : DbContext
                 Code = "plain_latin_cross",
                 Name = "Plain Latin Cross",
                 Description = "Simple Latin cross with clean lines and smooth surface, traditional proportions with longer vertical beam",
-                AiDescription = "A simple Latin cross pendant with clean straight arms and a slightly elongated vertical bar, without stones or engravings.",
+                AiDescription = "A simple Latin cross pendant with clean straight arms and a slightly elongated vertical bar.",
                 BasePrice = 150.0m,
                 IsActive = true
             },

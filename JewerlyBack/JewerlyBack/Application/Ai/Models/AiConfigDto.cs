@@ -118,6 +118,12 @@ public sealed class AiConfigDto
     public IReadOnlyList<AiStoneConfigDto>? Stones { get; init; }
 
     /// <summary>
+    /// Текст гравировки (персонализированное сообщение пользователя)
+    /// </summary>
+    [JsonPropertyName("engravingText")]
+    public string? EngravingText { get; init; }
+
+    /// <summary>
     /// Дополнительные параметры конфигурации (для будущих расширений)
     /// </summary>
     [JsonPropertyName("extra")]

@@ -146,17 +146,23 @@ public sealed class AiConfigBuilder : IAiConfigBuilder
             MaterialColorHex = configuration.Material.ColorHex,
 
             // Stones
-            Stones = stones
+            Stones = stones,
+
+            // Engraving text (user personalization)
+            EngravingText = string.IsNullOrWhiteSpace(configuration.EngravingText)
+                ? null
+                : configuration.EngravingText.Trim()
         };
 
         _logger.LogInformation(
             "AI config built successfully for configuration {ConfigurationId}. " +
-            "Category: {Category}, BaseModel: {BaseModel}, Material: {Material}, Stones: {StoneCount}",
+            "Category: {Category}, BaseModel: {BaseModel}, Material: {Material}, Stones: {StoneCount}, Engraving: {HasEngraving}",
             configurationId,
             aiConfig.CategoryName,
             aiConfig.BaseModelName,
             aiConfig.MaterialName,
-            stones?.Count ?? 0);
+            stones?.Count ?? 0,
+            !string.IsNullOrWhiteSpace(aiConfig.EngravingText));
 
         return aiConfig;
     }

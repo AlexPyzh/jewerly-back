@@ -9,6 +9,13 @@ public class JewelryConfiguration
     public string? Name { get; set; }
     public required ConfigurationStatus Status { get; set; }
     public string? ConfigJson { get; set; }
+
+    /// <summary>
+    /// Simple engraving text for MVP (optional personalization message)
+    /// Max length: 100 characters
+    /// </summary>
+    public string? EngravingText { get; set; }
+
     public decimal? EstimatedPrice { get; set; }
     public DateTimeOffset CreatedAt { get; set; }
     public DateTimeOffset? UpdatedAt { get; set; }
