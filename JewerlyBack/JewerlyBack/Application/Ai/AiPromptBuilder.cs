@@ -103,8 +103,8 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
             }
         }
 
-        // Photography style keywords
-        sb.Append(", minimalistic luxury jewelry photography with soft shadows and white background.");
+        // Photography style keywords with strong white background emphasis
+        sb.Append(", minimalistic luxury jewelry photography with soft shadows, isolated on pure white background.");
 
         return sb.ToString();
     }
@@ -174,10 +174,11 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
 
     /// <summary>
     /// Sentence 5: Photography style and technical quality.
+    /// Strong emphasis on pure white/transparent background for product photography.
     /// </summary>
     private static string BuildPhotographySentence()
     {
-        return "Captured in professional jewelry photography with soft studio lighting, clean white background, 8k resolution and highly detailed rendering.";
+        return "Captured in professional jewelry product photography with soft studio lighting, pure white seamless background, no shadows on background, 8k resolution, highly detailed rendering, isolated product shot.";
     }
 
     /// <summary>
@@ -414,8 +415,8 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
             }
         }
 
-        prompt.Append(", minimalistic luxury jewelry, soft shadows, white background, ");
-        prompt.Append("professional jewelry product photography, 8k, extremely detailed");
+        prompt.Append(", minimalistic luxury jewelry, soft shadows, pure white seamless background, ");
+        prompt.Append("professional jewelry product photography, isolated product shot, 8k, extremely detailed");
 
         return Task.FromResult(prompt.ToString());
     }
