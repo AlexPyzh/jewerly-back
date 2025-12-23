@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -51,7 +52,8 @@ builder.Services.AddControllers()
     {
         options.JsonSerializerOptions.PropertyNamingPolicy = JsonNamingPolicy.CamelCase;
         options.JsonSerializerOptions.DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull;
-        options.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+        // Removed JsonStringEnumConverter to serialize enums as integers (0, 1, etc.)
+        // This is required for Flutter admin which expects integer enum values
     });
 
 // ========================================
@@ -319,7 +321,13 @@ builder.Services.AddAuthentication(options =>
     };
 });
 
-builder.Services.AddAuthorization();
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("AdminOnly", policy =>
+    {
+        policy.RequireClaim(ClaimTypes.Role, "admin");
+    });
+});
 
 // ========================================
 // S3 Storage Configuration
@@ -345,26 +353,26 @@ builder.Services.AddSingleton<IAmazonS3>(_ =>
 builder.Services.AddSingleton<IS3StorageService, S3StorageService>();
 
 // ========================================
-// Leonardo AI Configuration
+// Ideogram AI Configuration
 // ========================================
-// ВАЖНО: ApiKey НЕ хранится в appsettings.json!
-// ApiKey загружается из переменной окружения LEONARDO_API_KEY.
+// IMPORTANT: ApiKey is NOT stored in appsettings.json!
+// ApiKey is loaded from the IDEOGRAM_API_KEY environment variable.
 //
-// Установка ключа:
-// - Development: export LEONARDO_API_KEY=...
-// - Docker: environment в docker-compose.yml
+// Setting the key:
+// - Development: export IDEOGRAM_API_KEY=...
+// - Docker: environment in docker-compose.yml
 // - Heroku/Render: Config Vars / Environment Variables
-// - GitHub Actions: secrets.LEONARDO_API_KEY
+// - GitHub Actions: secrets.IDEOGRAM_API_KEY
 //
-// Валидация ApiKey:
-// - В Production: обязательна, приложение не запустится без ключа
-// - В Development: опциональна, можно работать без ключа (для тестирования UI/DB)
-var leonardoOptionsBuilder = builder.Services
-    .AddOptions<LeonardoAiOptions>()
-    .Bind(builder.Configuration.GetSection(LeonardoAiOptions.SectionName))
+// ApiKey validation:
+// - In Production: required, application will not start without key
+// - In Development: optional, can work without key (for UI/DB testing)
+var ideogramOptionsBuilder = builder.Services
+    .AddOptions<IdeogramAiOptions>()
+    .Bind(builder.Configuration.GetSection(IdeogramAiOptions.SectionName))
     .Configure(options =>
     {
-        var envKey = Environment.GetEnvironmentVariable("LEONARDO_API_KEY");
+        var envKey = Environment.GetEnvironmentVariable("IDEOGRAM_API_KEY");
         if (!string.IsNullOrWhiteSpace(envKey))
         {
             options.ApiKey = envKey;
@@ -374,11 +382,56 @@ var leonardoOptionsBuilder = builder.Services
 // Validate API key only in Production
 if (!builder.Environment.IsDevelopment())
 {
-    leonardoOptionsBuilder
+    ideogramOptionsBuilder
         .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
-            "LEONARDO_API_KEY must be provided in Production. Set it as an environment variable.")
+            "IDEOGRAM_API_KEY must be provided in Production. Set it as an environment variable.")
         .ValidateOnStart();
 }
+
+// ========================================
+// OpenAI Vision Configuration (for Upgrade Flow)
+// ========================================
+// IMPORTANT: ApiKey is NOT stored in appsettings.json!
+// ApiKey is loaded from the OPENAI_API_KEY environment variable.
+//
+// Setting the key:
+// - Development: export OPENAI_API_KEY=...
+// - Docker: environment in docker-compose.yml
+// - Heroku/Render: Config Vars / Environment Variables
+// - GitHub Actions: secrets.OPENAI_API_KEY
+//
+// ApiKey validation:
+// - In Production: required, application will not start without key
+// - In Development: optional, can work without key (for UI/DB testing)
+var openAiVisionOptionsBuilder = builder.Services
+    .AddOptions<OpenAiVisionOptions>()
+    .Bind(builder.Configuration.GetSection(OpenAiVisionOptions.SectionName))
+    .Configure(options =>
+    {
+        var envKey = Environment.GetEnvironmentVariable("OPENAI_API_KEY");
+        if (!string.IsNullOrWhiteSpace(envKey))
+        {
+            options.ApiKey = envKey;
+        }
+    });
+
+// Validate API key only in Production
+if (!builder.Environment.IsDevelopment())
+{
+    openAiVisionOptionsBuilder
+        .Validate(options => !string.IsNullOrWhiteSpace(options.ApiKey),
+            "OPENAI_API_KEY must be provided in Production. Set it as an environment variable.")
+        .ValidateOnStart();
+}
+
+// Register OpenAI Vision HttpClient and services
+builder.Services.AddHttpClient<IJewelryVisionAnalyzer, OpenAiVisionClient>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<OpenAiVisionOptions>>().Value;
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
+    client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+});
+builder.Services.AddSingleton<IJewelryAnalysisPromptBuilder, JewelryAnalysisPromptBuilder>();
 
 // ========================================
 // Caching
@@ -398,27 +451,30 @@ builder.Services.AddScoped<IOrderService, OrderService>();
 builder.Services.AddScoped<IAssetService, AssetService>();
 builder.Services.AddScoped<IAccountService, AccountService>();
 builder.Services.AddScoped<IAiPreviewService, AiPreviewService>();
+builder.Services.AddScoped<IUpgradeService, UpgradeService>();
 // AuditService uses IServiceScopeFactory to create its own DbContext scopes,
 // so it can safely be a Singleton (one instance reused for all requests)
 builder.Services.AddSingleton<IAuditService, AuditService>();
 
 // AI Services
-// Регистрация HttpClient для LeonardoAiImageProvider с интерфейсом IAiImageProvider
-builder.Services.AddHttpClient<IAiImageProvider, LeonardoAiImageProvider>((sp, client) =>
+// Named HttpClient for downloading images from Ideogram CDN (no auth headers)
+builder.Services.AddHttpClient("IdeogramImageDownload", client =>
 {
-    var options = sp.GetRequiredService<IOptions<LeonardoAiOptions>>().Value;
-    // Ensure BaseUrl ends with / for proper relative URL resolution
-    var baseUrl = options.BaseUrl.EndsWith('/') ? options.BaseUrl : options.BaseUrl + "/";
-    client.BaseAddress = new Uri(baseUrl);
+    client.Timeout = TimeSpan.FromSeconds(60);
+    // Enable HTTP/2 for potentially faster downloads
+    client.DefaultRequestVersion = System.Net.HttpVersion.Version20;
+    client.DefaultVersionPolicy = HttpVersionPolicy.RequestVersionOrLower;
+});
 
-    // Only set Authorization header if API key is configured
-    if (!string.IsNullOrWhiteSpace(options.ApiKey))
-    {
-        client.DefaultRequestHeaders.Authorization =
-            new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", options.ApiKey);
-    }
-
+// Register HttpClient for IdeogramAiImageProvider with IAiImageProvider interface
+// Note: Ideogram 3.0 uses full URL in requests, base address is just for connection pooling
+builder.Services.AddHttpClient<IAiImageProvider, IdeogramAiImageProvider>((sp, client) =>
+{
+    var options = sp.GetRequiredService<IOptions<IdeogramAiOptions>>().Value;
+    // Base address for connection pooling
+    client.BaseAddress = new Uri(options.BaseUrl.TrimEnd('/') + "/");
     client.Timeout = TimeSpan.FromSeconds(options.TimeoutSeconds);
+    // Note: Api-Key header is added per-request in the provider
 });
 builder.Services.AddScoped<IAiPromptBuilder, AiPromptBuilder>();
 builder.Services.AddScoped<IAiConfigBuilder, AiConfigBuilder>();
@@ -426,6 +482,7 @@ builder.Services.AddScoped<ISemanticContextBuilder, SemanticContextBuilder>();
 
 // Background Services
 builder.Services.AddHostedService<AiPreviewBackgroundService>();
+builder.Services.AddHostedService<UpgradePreviewBackgroundService>();
 
 // ========================================
 // Build Application
@@ -433,24 +490,51 @@ builder.Services.AddHostedService<AiPreviewBackgroundService>();
 var app = builder.Build();
 
 // ========================================
-// Log Leonardo AI Configuration (once at startup)
+// Log Ideogram AI Configuration (once at startup)
 // ========================================
 {
-    var leonardoOptions = app.Services.GetRequiredService<IOptions<LeonardoAiOptions>>().Value;
+    var ideogramOptions = app.Services.GetRequiredService<IOptions<IdeogramAiOptions>>().Value;
     Console.WriteLine();
     Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
-    Console.WriteLine("│ 🎨 Leonardo AI Image Provider Configuration                 │");
+    Console.WriteLine("│ 🎨 Ideogram AI 3.0 Image Provider Configuration             │");
     Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
-    Console.WriteLine($"│ Base URL:      {leonardoOptions.BaseUrl,-45}│");
-    Console.WriteLine($"│ Model ID:      {leonardoOptions.ModelId,-45}│");
-    Console.WriteLine($"│ Image Size:    {leonardoOptions.ImageWidth}x{leonardoOptions.ImageHeight}{new string(' ', 37)}│");
-    Console.WriteLine($"│ Timeout:       {leonardoOptions.TimeoutSeconds} seconds{new string(' ', 35)}│");
-    Console.WriteLine($"│ Poll Interval: {leonardoOptions.PollingIntervalSeconds} seconds{new string(' ', 36)}│");
-    Console.WriteLine($"│ Max Attempts:  {leonardoOptions.MaxPollingAttempts,-45}│");
-    Console.WriteLine($"│ PhotoReal:     {leonardoOptions.PhotoReal,-45}│");
-    Console.WriteLine($"│ Alchemy:       {leonardoOptions.Alchemy,-45}│");
-    var apiKeyStatus = string.IsNullOrWhiteSpace(leonardoOptions.ApiKey) ? "❌ NOT CONFIGURED" : "✅ Configured (hidden)";
-    Console.WriteLine($"│ API Key:       {apiKeyStatus,-45}│");
+    Console.WriteLine($"│ Base URL:         {ideogramOptions.BaseUrl,-42}│");
+    Console.WriteLine($"│ Generate Endpoint:{ideogramOptions.GenerateEndpoint,-42}│");
+    Console.WriteLine($"│ HTTP Timeout:     {ideogramOptions.TimeoutSeconds} seconds{new string(' ', 32)}│");
+    Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+    Console.WriteLine("│ Generation Parameters:                                      │");
+    Console.WriteLine($"│ Aspect Ratio:     {ideogramOptions.AspectRatio,-42}│");
+    Console.WriteLine($"│ Rendering Speed:  {ideogramOptions.RenderingSpeed,-42}│");
+    Console.WriteLine($"│ Style Type:       {ideogramOptions.StyleType,-42}│");
+    Console.WriteLine($"│ Magic Prompt:     {ideogramOptions.MagicPrompt,-42}│");
+    Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+    var apiKeyStatus = string.IsNullOrWhiteSpace(ideogramOptions.ApiKey) ? "❌ NOT CONFIGURED" : "✅ Configured (hidden)";
+    Console.WriteLine($"│ API Key:          {apiKeyStatus,-42}│");
+    Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
+    Console.WriteLine();
+}
+
+// ========================================
+// Log OpenAI Vision Configuration (once at startup)
+// ========================================
+{
+    var openAiOptions = app.Services.GetRequiredService<IOptions<OpenAiVisionOptions>>().Value;
+    Console.WriteLine();
+    Console.WriteLine("┌─────────────────────────────────────────────────────────────┐");
+    Console.WriteLine("│ 👁️  OpenAI Vision Configuration (Upgrade Flow)              │");
+    Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+    Console.WriteLine($"│ Base URL:         {openAiOptions.BaseUrl,-42}│");
+    Console.WriteLine($"│ Model:            {openAiOptions.Model,-42}│");
+    Console.WriteLine($"│ HTTP Timeout:     {openAiOptions.TimeoutSeconds} seconds{new string(' ', 32)}│");
+    Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+    Console.WriteLine("│ Analysis Parameters:                                        │");
+    Console.WriteLine($"│ Max Tokens:       {openAiOptions.MaxTokens,-42}│");
+    Console.WriteLine($"│ Temperature:      {openAiOptions.Temperature,-42}│");
+    Console.WriteLine($"│ Image Detail:     {openAiOptions.ImageDetail,-42}│");
+    Console.WriteLine($"│ Max Retries:      {openAiOptions.MaxRetries,-42}│");
+    Console.WriteLine("├─────────────────────────────────────────────────────────────┤");
+    var openAiKeyStatus = string.IsNullOrWhiteSpace(openAiOptions.ApiKey) ? "❌ NOT CONFIGURED" : "✅ Configured (hidden)";
+    Console.WriteLine($"│ API Key:          {openAiKeyStatus,-42}│");
     Console.WriteLine("└─────────────────────────────────────────────────────────────┘");
     Console.WriteLine();
 }

@@ -24,6 +24,8 @@ public class AppDbContext : DbContext
     public DbSet<OrderItem> OrderItems { get; set; }
     public DbSet<AiPreviewJob> AiPreviewJobs { get; set; }
     public DbSet<AuditLog> AuditLogs { get; set; }
+    public DbSet<UpgradeAnalysis> UpgradeAnalyses { get; set; }
+    public DbSet<UpgradePreviewJob> UpgradePreviewJobs { get; set; }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -471,6 +473,129 @@ public class AppDbContext : DbContext
         });
 
         // ========================================
+        // UpgradeAnalysis
+        // ========================================
+        modelBuilder.Entity<UpgradeAnalysis>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.UserId)
+                .IsRequired(false);
+
+            entity.Property(e => e.GuestClientId)
+                .HasMaxLength(100)
+                .IsRequired(false);
+
+            entity.Property(e => e.OriginalImageUrl)
+                .IsRequired()
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.Status)
+                .IsRequired();
+
+            entity.Property(e => e.JewelryType)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.DetectedMetal)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.DetectedMetalDescription)
+                .HasMaxLength(500);
+
+            entity.Property(e => e.StyleClassification)
+                .HasMaxLength(100);
+
+            entity.Property(e => e.ConfidenceScore)
+                .HasPrecision(5, 4);
+
+            entity.Property(e => e.ErrorMessage)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.CreatedAtUtc)
+                .IsRequired();
+
+            entity.Property(e => e.UpdatedAtUtc)
+                .IsRequired();
+
+            // Relationship with user
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Relationship with category
+            entity.HasOne(e => e.DetectedCategory)
+                .WithMany()
+                .HasForeignKey(e => e.DetectedCategoryId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Index for user queries
+            entity.HasIndex(e => e.UserId)
+                .HasFilter("\"UserId\" IS NOT NULL");
+
+            // Index for guest queries
+            entity.HasIndex(e => e.GuestClientId)
+                .HasFilter("\"GuestClientId\" IS NOT NULL");
+
+            // Index for status queries
+            entity.HasIndex(e => e.Status);
+        });
+
+        // ========================================
+        // UpgradePreviewJob
+        // ========================================
+        modelBuilder.Entity<UpgradePreviewJob>(entity =>
+        {
+            entity.HasKey(e => e.Id);
+
+            entity.Property(e => e.AnalysisId)
+                .IsRequired();
+
+            entity.Property(e => e.UserId)
+                .IsRequired(false);
+
+            entity.Property(e => e.GuestClientId)
+                .HasMaxLength(100)
+                .IsRequired(false);
+
+            entity.Property(e => e.Status)
+                .IsRequired();
+
+            entity.Property(e => e.Prompt)
+                .HasMaxLength(8000);
+
+            entity.Property(e => e.EnhancedImageUrl)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.ErrorMessage)
+                .HasMaxLength(1000);
+
+            entity.Property(e => e.CreatedAtUtc)
+                .IsRequired();
+
+            entity.Property(e => e.UpdatedAtUtc)
+                .IsRequired();
+
+            // Relationship with analysis
+            entity.HasOne(e => e.Analysis)
+                .WithMany(e => e.PreviewJobs)
+                .HasForeignKey(e => e.AnalysisId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            // Relationship with user
+            entity.HasOne(e => e.User)
+                .WithMany()
+                .HasForeignKey(e => e.UserId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            // Index for analysis queries
+            entity.HasIndex(e => e.AnalysisId);
+
+            // Index for status queries
+            entity.HasIndex(e => e.Status);
+        });
+
+        // ========================================
         // SEED DATA
         // ========================================
 
@@ -832,10 +957,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000002"),
                 CategoryId = 1,
-                Code = "thin_band_single_stone",
-                Name = "Thin Band with Single Stone",
-                Description = "Delicate thin band featuring one small stone set in a minimal prong or bezel setting",
-                AiDescription = "A delicate thin band ring with a single round stone set at the top in a simple prong or bezel setting, emphasizing minimalism and lightness.",
+                Code = "thin_band_elevated_setting",
+                Name = "Thin Band with Elevated Setting",
+                Description = "Delicate thin band featuring a minimal raised setting structure at the center, designed for a lightweight elegant appearance",
+                AiDescription = "A delicate thin band ring with a small elevated setting structure at the top, emphasizing minimalism and lightness with a refined central focal point.",
                 BasePrice = 400.0m,
                 IsActive = true
             },
@@ -843,10 +968,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000003"),
                 CategoryId = 1,
-                Code = "solitaire_engagement_ring",
-                Name = "Solitaire Engagement Ring",
-                Description = "Classic engagement ring with a prominent center stone elevated in a four or six-prong setting on a slender band",
-                AiDescription = "An engagement ring with a raised central setting holding a single larger stone, with a clean, elegant band that draws attention to the solitaire.",
+                Code = "classic_elevated_setting_ring",
+                Name = "Classic Elevated Setting Ring",
+                Description = "Classic ring with a prominent raised central setting structure on a slender band, elegant silhouette with elevated focal point",
+                AiDescription = "A ring with a raised central setting structure featuring an elegant elevated profile, with a clean band that draws attention to the central focal point.",
                 BasePrice = 800.0m,
                 IsActive = true
             },
@@ -854,10 +979,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("10000000-0000-0000-0000-000000000004"),
                 CategoryId = 1,
-                Code = "eternity_ring",
-                Name = "Eternity Ring",
-                Description = "Band fully encircled with small identical stones set side-by-side in a continuous channel or prong setting",
-                AiDescription = "A narrow ring with a continuous line of evenly spaced small stones going all the way around the band, creating a uniform sparkle from every angle.",
+                Code = "continuous_setting_band",
+                Name = "Continuous Setting Band",
+                Description = "Narrow band with a continuous row of evenly spaced small setting structures encircling the entire ring",
+                AiDescription = "A narrow ring with a continuous line of evenly spaced small setting structures going all the way around the band, creating a uniform decorative pattern from every angle.",
                 BasePrice = 950.0m,
                 IsActive = true
             },
@@ -882,8 +1007,8 @@ public class AppDbContext : DbContext
                 CategoryId = 2,
                 Code = "classic_stud",
                 Name = "Classic Stud",
-                Description = "Simple stud earring with a single gemstone set directly on a post, minimalist and close to the earlobe",
-                AiDescription = "A small stud earring with a single stone or smooth disc sitting close to the earlobe, mounted on a straight post with a simple backing.",
+                Description = "Simple stud earring with a decorative element set directly on a post, minimalist and close to the earlobe",
+                AiDescription = "A small stud earring with a decorative element or smooth disc sitting close to the earlobe, mounted on a straight post with a simple backing.",
                 BasePrice = 300.0m,
                 IsActive = true
             },
@@ -891,10 +1016,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("20000000-0000-0000-0000-000000000002"),
                 CategoryId = 2,
-                Code = "cluster_stud",
-                Name = "Cluster Stud",
-                Description = "Stud earring featuring multiple small stones arranged in a tight cluster around a central stone",
-                AiDescription = "A stud earring formed by a tight cluster of several small stones or elements arranged into a compact shape that sits on the earlobe.",
+                Code = "cluster_design_stud",
+                Name = "Cluster Design Stud",
+                Description = "Stud earring featuring multiple small setting structures arranged in a tight decorative cluster pattern",
+                AiDescription = "A stud earring formed by a tight cluster of several small decorative elements arranged into a compact ornamental shape that sits on the earlobe.",
                 BasePrice = 450.0m,
                 IsActive = true
             },
@@ -905,7 +1030,7 @@ public class AppDbContext : DbContext
                 Code = "small_hoop",
                 Name = "Small Hoop",
                 Description = "Smooth metal hoop in a small diameter, simple circular shape that hugs the earlobe",
-                AiDescription = "A small, smooth hoop earring that hugs the earlobe closely, with a continuous circular or slightly oval shape and no additional stones.",
+                AiDescription = "A small, smooth hoop earring that hugs the earlobe closely, with a continuous circular or slightly oval shape and polished surface.",
                 BasePrice = 220.0m,
                 IsActive = true
             },
@@ -913,10 +1038,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("20000000-0000-0000-0000-000000000004"),
                 CategoryId = 2,
-                Code = "hoop_with_stones",
-                Name = "Hoop with Stones",
-                Description = "Hoop earring with small stones set along the outer edge, adding sparkle to the classic hoop design",
-                AiDescription = "A medium-sized hoop earring with stones set along the visible outer front section of the hoop, combining a clean circular form with a line of sparkle.",
+                Code = "embellished_hoop",
+                Name = "Embellished Hoop",
+                Description = "Hoop earring with small decorative settings along the outer edge, adding visual interest to the classic hoop design",
+                AiDescription = "A medium-sized hoop earring with decorative setting structures along the visible outer front section of the hoop, combining a clean circular form with an embellished accent line.",
                 BasePrice = 550.0m,
                 IsActive = true
             },
@@ -926,7 +1051,7 @@ public class AppDbContext : DbContext
                 CategoryId = 2,
                 Code = "simple_drop_earring",
                 Name = "Simple Drop Earring",
-                Description = "Earring with a single stone or element suspended below the earlobe on a short chain or wire",
+                Description = "Earring with a decorative element suspended below the earlobe on a short chain or wire",
                 AiDescription = "A minimalist drop earring where a small pendant element hangs from a short connector, creating a light movement just below the earlobe.",
                 BasePrice = 380.0m,
                 IsActive = true
@@ -941,8 +1066,8 @@ public class AppDbContext : DbContext
                 CategoryId = 3,
                 Code = "round_disc_pendant",
                 Name = "Round Disc Pendant",
-                Description = "Flat circular disc pendant with smooth surface, ideal for engraving or minimal embellishment",
-                AiDescription = "A flat round disc pendant with a polished surface and a small bail at the top, ideal for engraving or subtle minimalist styling.",
+                Description = "Flat circular disc pendant with smooth polished surface, versatile minimalist design",
+                AiDescription = "A flat round disc pendant with a polished surface and a small bail at the top, featuring clean minimalist styling.",
                 BasePrice = 180.0m,
                 IsActive = true
             },
@@ -972,10 +1097,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("30000000-0000-0000-0000-000000000004"),
                 CategoryId = 3,
-                Code = "single_stone_pendant",
-                Name = "Single Stone Pendant",
-                Description = "Single prominent gemstone held in a prong or bezel setting, suspended from a chain as the focal point",
-                AiDescription = "A pendant built around a single central stone in a delicate setting, suspended from a small bail so the stone becomes the main focus.",
+                Code = "elevated_setting_pendant",
+                Name = "Elevated Setting Pendant",
+                Description = "Pendant with a central raised setting structure as the focal point, suspended from a chain",
+                AiDescription = "A pendant built around a central elevated setting structure, suspended from a small bail so the setting becomes the main focus.",
                 BasePrice = 350.0m,
                 IsActive = true
             },
@@ -1009,10 +1134,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("40000000-0000-0000-0000-000000000002"),
                 CategoryId = 4,
-                Code = "tennis_necklace",
-                Name = "Tennis Necklace",
-                Description = "Continuous line of identical stones set in individual settings, creating a sparkling collar effect",
-                AiDescription = "A continuous line necklace made of closely set stones of similar size, forming a flexible sparkling band around the neck.",
+                Code = "continuous_setting_necklace",
+                Name = "Continuous Setting Necklace",
+                Description = "Continuous line of identical setting structures arranged side by side, creating an elegant collar effect",
+                AiDescription = "A continuous line necklace made of closely arranged uniform setting structures, forming a flexible decorative band around the neck.",
                 BasePrice = 1200.0m,
                 IsActive = true
             },
@@ -1033,8 +1158,8 @@ public class AppDbContext : DbContext
                 CategoryId = 4,
                 Code = "name_plate_necklace",
                 Name = "Name Plate Necklace",
-                Description = "Horizontal rectangular plate attached to a chain, designed for personalized name or word engraving",
-                AiDescription = "A necklace with a horizontal plate or word element at the center of a fine chain, suitable for names or short inscriptions.",
+                Description = "Horizontal rectangular plate attached to a chain, designed for personalized text or decorative elements",
+                AiDescription = "A necklace with a horizontal plate element at the center of a fine chain, suitable for personalization or decorative styling.",
                 BasePrice = 250.0m,
                 IsActive = true
             },
@@ -1068,10 +1193,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("50000000-0000-0000-0000-000000000003"),
                 CategoryId = 5,
-                Code = "tennis_bracelet",
-                Name = "Tennis Bracelet",
-                Description = "Line bracelet with a continuous row of individually set stones linked together",
-                AiDescription = "A bracelet made of a single row of evenly spaced stones set closely together, creating a continuous line of sparkle around the wrist.",
+                Code = "continuous_setting_bracelet",
+                Name = "Continuous Setting Bracelet",
+                Description = "Line bracelet with a continuous row of individually linked setting structures",
+                AiDescription = "A bracelet made of a single row of evenly spaced setting structures linked closely together, creating a continuous decorative line around the wrist.",
                 BasePrice = 950.0m,
                 IsActive = true
             },
@@ -1155,7 +1280,7 @@ public class AppDbContext : DbContext
                 CategoryId = 7,
                 Code = "floral_brooch",
                 Name = "Floral Brooch",
-                Description = "Decorative pin with flower-inspired design featuring petals and possibly a center stone",
+                Description = "Decorative pin with flower-inspired design featuring petals radiating from a central focal point",
                 AiDescription = "A brooch shaped like a stylized flower with petals radiating from the center, designed to sit flat on fabric and add a decorative accent.",
                 BasePrice = 280.0m,
                 IsActive = true
@@ -1177,7 +1302,7 @@ public class AppDbContext : DbContext
                 CategoryId = 7,
                 Code = "animal_shape_brooch",
                 Name = "Animal Shape Brooch",
-                Description = "Decorative pin shaped like an animal or creature, often embellished with stones or enamel",
+                Description = "Decorative pin shaped like an animal or creature, with detailed metalwork and enamel accents",
                 AiDescription = "A brooch representing the silhouette or detailed figure of an animal, with contours and details emphasizing its character.",
                 BasePrice = 300.0m,
                 IsActive = true
@@ -1249,10 +1374,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("a0000000-0000-0000-0000-000000000001"),
                 CategoryId = 10,
-                Code = "single_stone_hair_pin",
-                Name = "Single Stone Hair Pin",
-                Description = "Simple hair pin with a single gemstone or decorative element at the top",
-                AiDescription = "A slim hair pin with a single stone or decorative element mounted at one end, meant to be partially visible in the hairstyle.",
+                Code = "decorative_top_hair_pin",
+                Name = "Decorative Top Hair Pin",
+                Description = "Simple hair pin with a decorative element at the top",
+                AiDescription = "A slim hair pin with a decorative element mounted at one end, meant to be partially visible in the hairstyle.",
                 BasePrice = 80.0m,
                 IsActive = true
             },
@@ -1262,8 +1387,8 @@ public class AppDbContext : DbContext
                 CategoryId = 10,
                 Code = "cluster_decorative_hair_pin",
                 Name = "Cluster Decorative Hair Pin",
-                Description = "Hair pin featuring a cluster of small stones or floral elements in an ornate design",
-                AiDescription = "A hair pin with a small cluster of stones or elements arranged near the tip, creating a more pronounced decorative accent in the hair.",
+                Description = "Hair pin featuring a cluster of decorative elements in an ornate design",
+                AiDescription = "A hair pin with a small cluster of decorative elements arranged near the tip, creating a more pronounced ornamental accent in the hair.",
                 BasePrice = 120.0m,
                 IsActive = true
             },
@@ -1273,8 +1398,8 @@ public class AppDbContext : DbContext
                 CategoryId = 10,
                 Code = "decorative_hair_comb",
                 Name = "Decorative Hair Comb",
-                Description = "Hair comb with decorative top edge embellished with stones or metal work",
-                AiDescription = "A short comb with multiple teeth that slide into the hair and a decorative top bar featuring stones or metal motifs.",
+                Description = "Hair comb with decorative top edge embellished with metalwork patterns",
+                AiDescription = "A short comb with multiple teeth that slide into the hair and a decorative top bar featuring ornamental metal motifs.",
                 BasePrice = 150.0m,
                 IsActive = true
             },
@@ -1367,10 +1492,10 @@ public class AppDbContext : DbContext
             {
                 Id = Guid.Parse("e0000000-0000-0000-0000-000000000003"),
                 CategoryId = 14,
-                Code = "cross_with_stones",
-                Name = "Cross with Stones",
-                Description = "Latin cross embellished with small gemstones set along the beams or at intersection points",
-                AiDescription = "A cross pendant with small stones set along the arms, adding sparkle while preserving the clear cross silhouette.",
+                Code = "embellished_cross",
+                Name = "Embellished Cross",
+                Description = "Latin cross with decorative setting structures along the beams or at intersection points",
+                AiDescription = "A cross pendant with small decorative settings along the arms, adding visual interest while preserving the clear cross silhouette.",
                 BasePrice = 280.0m,
                 IsActive = true
             },

@@ -1,26 +1,212 @@
 using System.Text;
+using System.Text.Json;
 using JewerlyBack.Application.Ai.Models;
 using JewerlyBack.Models;
 
 namespace JewerlyBack.Application.Ai;
 
 /// <summary>
-/// Implementation of AI prompt builder that generates concise, natural language prompts
-/// optimized for AI image generation. Outputs a single flowing paragraph without JSON or sections.
+/// Implementation of AI prompt builder that generates structured JSON prompts
+/// optimized for AI image generation with Ideogram 3.0.
 /// </summary>
 public sealed class AiPromptBuilder : IAiPromptBuilder
 {
     private readonly ILogger<AiPromptBuilder> _logger;
+
+    /// <summary>
+    /// JSON serializer options for structured prompts.
+    /// Uses camelCase naming and indented formatting for readability.
+    /// </summary>
+    private static readonly JsonSerializerOptions JsonOptions = new()
+    {
+        PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+        WriteIndented = false, // Compact JSON for prompts
+        DefaultIgnoreCondition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull
+    };
 
     public AiPromptBuilder(ILogger<AiPromptBuilder> logger)
     {
         _logger = logger;
     }
 
+    // ============================================================
+    // STRUCTURED PROMPT METHODS (PREFERRED)
+    // ============================================================
+
+    /// <summary>
+    /// Builds a structured JSON prompt for AI preview generation.
+    /// This is the preferred method for generating prompts.
+    /// </summary>
+    public Task<string> BuildStructuredPromptAsync(AiConfigDto aiConfig, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(aiConfig);
+
+        var structuredPrompt = BuildStructuredPromptDto(aiConfig);
+        var json = JsonSerializer.Serialize(structuredPrompt, JsonOptions);
+
+        return Task.FromResult(json);
+    }
+
+    /// <summary>
+    /// Builds a structured prompt DTO object for AI preview generation.
+    /// Use this when you need the object instead of serialized JSON.
+    /// </summary>
+    public Task<StructuredPromptDto> BuildStructuredPromptDtoAsync(AiConfigDto aiConfig, CancellationToken ct = default)
+    {
+        ArgumentNullException.ThrowIfNull(aiConfig);
+
+        var structuredPrompt = BuildStructuredPromptDto(aiConfig);
+        return Task.FromResult(structuredPrompt);
+    }
+
+    /// <summary>
+    /// Builds the structured prompt DTO from the AI configuration.
+    /// </summary>
+    private StructuredPromptDto BuildStructuredPromptDto(AiConfigDto aiConfig)
+    {
+        var hasStones = aiConfig.Stones?.Any() == true;
+        var hasEngraving = !string.IsNullOrWhiteSpace(aiConfig.EngravingText);
+
+        // Build subject
+        var subject = BuildSubject(aiConfig, hasStones);
+
+        // Build personalization (only if engraving exists)
+        StructuredPromptPersonalizationDto? personalization = null;
+        if (hasEngraving)
+        {
+            var sanitizedText = SanitizeEngravingText(aiConfig.EngravingText!);
+            if (!string.IsNullOrEmpty(sanitizedText))
+            {
+                personalization = new StructuredPromptPersonalizationDto
+                {
+                    Engraving = new StructuredPromptEngravingDto
+                    {
+                        Text = sanitizedText
+                    }
+                };
+            }
+        }
+
+        return new StructuredPromptDto
+        {
+            Task = "text_to_image",
+            Subject = subject,
+            Personalization = personalization,
+            // Rendering, Background, Constraints, Output use default values (hardcoded)
+        };
+    }
+
+    /// <summary>
+    /// Builds the subject section of the structured prompt.
+    /// Uses name/description pattern with database values directly.
+    /// </summary>
+    private StructuredPromptSubjectDto BuildSubject(AiConfigDto aiConfig, bool hasStones)
+    {
+        // Category - use database name and description directly
+        var category = new NameDescriptionDto
+        {
+            Name = aiConfig.CategoryName,
+            Description = aiConfig.CategoryAiDescription
+                ?? aiConfig.CategoryDescription
+                ?? $"A {aiConfig.CategoryName.ToLowerInvariant()} jewelry piece"
+        };
+
+        // Base model - use database name and description directly
+        var baseModel = new NameDescriptionDto
+        {
+            Name = aiConfig.BaseModelName,
+            Description = aiConfig.BaseModelAiDescription
+                ?? aiConfig.BaseModelDescription
+                ?? $"A {aiConfig.BaseModelName.ToLowerInvariant()} design"
+        };
+
+        // Material - use database name and build description from properties
+        var materialDescription = BuildMaterialDescription(aiConfig);
+        var material = new NameDescriptionDto
+        {
+            Name = aiConfig.MaterialName,
+            Description = materialDescription
+        };
+
+        // Center stone (only if stones exist) - use stone name and color as description
+        NameDescriptionDto? centerStone = null;
+        if (hasStones && aiConfig.Stones != null && aiConfig.Stones.Count > 0)
+        {
+            var firstStone = aiConfig.Stones[0];
+            var stoneDescription = BuildStoneDescription(firstStone);
+
+            centerStone = new NameDescriptionDto
+            {
+                Name = firstStone.StoneTypeName,
+                Description = stoneDescription
+            };
+        }
+
+        return new StructuredPromptSubjectDto
+        {
+            Category = category,
+            BaseModel = baseModel,
+            Material = material,
+            CenterStone = centerStone
+        };
+    }
+
+    /// <summary>
+    /// Builds a description for the material based on its properties.
+    /// </summary>
+    private static string BuildMaterialDescription(AiConfigDto aiConfig)
+    {
+        var parts = new List<string>();
+
+        // Add karat if present
+        if (aiConfig.Karat.HasValue)
+        {
+            parts.Add($"{aiConfig.Karat}K");
+        }
+
+        // Add metal type
+        parts.Add(aiConfig.MetalType.ToLowerInvariant());
+
+        // Build the base description
+        var baseDesc = string.Join(" ", parts);
+
+        return $"Lustrous {baseDesc} with refined finish and elegant shine";
+    }
+
+    /// <summary>
+    /// Builds a description for the stone based on its properties.
+    /// </summary>
+    private static string BuildStoneDescription(AiStoneConfigDto stone)
+    {
+        var parts = new List<string>();
+
+        // Add color if present
+        if (!string.IsNullOrWhiteSpace(stone.Color))
+        {
+            parts.Add(stone.Color.ToLowerInvariant());
+        }
+
+        // Add stone type
+        parts.Add(stone.StoneTypeName.ToLowerInvariant());
+
+        // Add count if more than one
+        if (stone.Count > 1)
+        {
+            return $"{stone.Count} {string.Join(" ", parts)} gemstones";
+        }
+
+        return $"A brilliant {string.Join(" ", parts)} gemstone";
+    }
+
+    // ============================================================
+    // LEGACY TEXT-BASED PROMPT METHODS (OBSOLETE)
+    // ============================================================
+
     /// <summary>
     /// Builds a concise, AI-optimized preview prompt from semantic configuration.
     /// Returns a single paragraph of 3-5 sentences describing the jewelry piece.
     /// </summary>
+    [Obsolete("Use BuildStructuredPromptAsync instead")]
     public Task<string> BuildPreviewPromptAsync(AiConfigDto aiConfig, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(aiConfig);
@@ -53,10 +239,6 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
         prompt.Append(BuildPhotographySentence());
 
         var result = prompt.ToString().Trim();
-
-        // Note: Prompt logging is intentionally NOT done here.
-        // The full prompt is logged ONLY in AiPreviewBackgroundService when generation is triggered.
-        // This ensures prompt is logged once per generation request, not on build.
 
         return Task.FromResult(result);
     }
@@ -104,7 +286,7 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
         }
 
         // Photography style keywords with strong white background emphasis
-        sb.Append(", minimalistic luxury jewelry photography with soft shadows, isolated on pure white background.");
+        sb.Append(", minimalistic luxury jewelry photography, isolated on solid pure white background, no shadows on background.");
 
         return sb.ToString();
     }
@@ -175,10 +357,11 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
     /// <summary>
     /// Sentence 5: Photography style and technical quality.
     /// Strong emphasis on pure white/transparent background for product photography.
+    /// Multiple white background keywords ensure AI generates clean white backdrop.
     /// </summary>
     private static string BuildPhotographySentence()
     {
-        return "Captured in professional jewelry product photography with soft studio lighting, pure white seamless background, no shadows on background, 8k resolution, highly detailed rendering, isolated product shot.";
+        return "Professional jewelry product photography on solid pure white background, clean white seamless backdrop with no shadows or reflections on background, soft studio lighting, 8k resolution, highly detailed rendering, isolated product shot on clear white background.";
     }
 
     /// <summary>
@@ -377,7 +560,7 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
     }
 
     // Legacy method - keeping for backwards compatibility
-    [Obsolete("Use BuildPreviewPromptAsync(AiConfigDto aiConfig) instead")]
+    [Obsolete("Use BuildStructuredPromptAsync(AiConfigDto aiConfig) instead")]
     public Task<string> BuildPreviewPromptAsync(JewelryConfiguration configuration, CancellationToken ct = default)
     {
         ArgumentNullException.ThrowIfNull(configuration);
@@ -415,8 +598,8 @@ public sealed class AiPromptBuilder : IAiPromptBuilder
             }
         }
 
-        prompt.Append(", minimalistic luxury jewelry, soft shadows, pure white seamless background, ");
-        prompt.Append("professional jewelry product photography, isolated product shot, 8k, extremely detailed");
+        prompt.Append(", minimalistic luxury jewelry on solid pure white background, no shadows on background, ");
+        prompt.Append("professional jewelry product photography, clean white seamless backdrop, isolated product shot on white, 8k, extremely detailed");
 
         return Task.FromResult(prompt.ToString());
     }

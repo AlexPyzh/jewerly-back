@@ -22,8 +22,8 @@ public sealed class AiPreviewBackgroundService : BackgroundService
     private readonly TimeSpan _pollingInterval = TimeSpan.FromSeconds(10); // Период опроса БД
     private readonly TimeSpan _processingDelay = TimeSpan.FromSeconds(2);  // Задержка между обработкой job'ов
     private readonly int _batchSize = 3; // Количество job'ов, обрабатываемых за один цикл
-    private readonly TimeSpan _jobTimeout = TimeSpan.FromMinutes(3); // Timeout for AI generation
-    private readonly TimeSpan _stuckJobThreshold = TimeSpan.FromMinutes(5); // Threshold for stuck job detection
+    private readonly TimeSpan _jobTimeout = TimeSpan.FromMinutes(2); // Timeout for AI generation (reduced from 3min for faster failure)
+    private readonly TimeSpan _stuckJobThreshold = TimeSpan.FromMinutes(3); // Threshold for stuck job detection (reduced from 5min)
     private readonly TimeSpan _heartbeatInterval = TimeSpan.FromSeconds(30); // Heartbeat logging interval
 
     // Tracking
@@ -313,19 +313,20 @@ public sealed class AiPreviewBackgroundService : BackgroundService
                 Console.WriteLine("   ✓ Built new AiConfigJson");
             }
 
-            // 3. Строим промпт на основе семантического config
-            Console.WriteLine("📝 Step 3: Building AI prompt...");
+            // 3. Build structured JSON prompt based on semantic config
+            Console.WriteLine("📝 Step 3: Building structured JSON prompt...");
             var promptStopwatch = Stopwatch.StartNew();
-            var prompt = await promptBuilder.BuildPreviewPromptAsync(aiConfig, stoppingToken);
+            var prompt = await promptBuilder.BuildStructuredPromptAsync(aiConfig, stoppingToken);
             promptStopwatch.Stop();
 
-            Console.WriteLine($"   ✓ Prompt built in {promptStopwatch.ElapsedMilliseconds}ms");
+            Console.WriteLine($"   ✓ Structured prompt built in {promptStopwatch.ElapsedMilliseconds}ms");
             Console.WriteLine($"   Prompt length: {prompt.Length} characters");
+            Console.WriteLine($"   Prompt type: Structured JSON");
             Console.WriteLine();
 
-            // Log the FULL prompt - this is the ONLY place where the prompt should be logged
-            // Uses exact format "AI PREVIEW PROMPT\n{prompt}" for easy searching/parsing
-            _logger.LogInformation("AI PREVIEW PROMPT\n{Prompt}", prompt);
+            // Log the FULL structured prompt - this is the ONLY place where the prompt should be logged
+            // Uses exact format "AI PREVIEW STRUCTURED PROMPT\n{prompt}" for easy searching/parsing
+            _logger.LogInformation("AI PREVIEW STRUCTURED PROMPT\n{Prompt}", prompt);
 
             // 4. Генерируем изображение в зависимости от типа WITH TIMEOUT
             Console.WriteLine("📝 Step 4: Generating AI image...");

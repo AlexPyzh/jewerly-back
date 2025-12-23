@@ -13,10 +13,11 @@ namespace JewerlyBack.Infrastructure.Storage;
 /// - Требуется ForcePathStyle = true
 /// - Bucket name включает идентификатор: "bucketId:bucketName"
 /// - Endpoint: https://usc1.contabostorage.com (US Central)
+/// - ACL PublicRead не работает без bucket policy, поэтому используем presigned URLs
 ///
 /// Безопасность:
-/// - Сейчас бакет публичный, возвращаем прямые URL
-/// - TODO: После настройки приватного доступа использовать presigned URLs
+/// - Используем presigned URLs с ограниченным временем жизни (7 дней)
+/// - Это обеспечивает доступ к файлам без настройки bucket policy на Contabo
 /// </remarks>
 public sealed class S3StorageService : IS3StorageService, IDisposable
 {
@@ -61,7 +62,7 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
         {
             Console.WriteLine($"   │ File Size:    {streamLength:N0} bytes ({streamLength / 1024.0:F1} KB){new string(' ', 20)}│");
         }
-        Console.WriteLine($"   │ ACL:          PublicRead{new string(' ', 30)}│");
+        Console.WriteLine($"   │ Access:       Presigned URL (7d){new string(' ', 22)}│");
         Console.WriteLine("   └─────────────────────────────────────────────────────────┘");
 
         var request = new PutObjectRequest
@@ -69,10 +70,9 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
             BucketName = _options.BucketName,
             Key = fileKey,
             InputStream = stream,
-            ContentType = contentType,
-            // Для публичного бакета. После перехода на приватный — убрать.
-            // TODO: Убрать CannedACL после настройки приватного бакета
-            CannedACL = S3CannedACL.PublicRead
+            ContentType = contentType
+            // Note: Not using CannedACL - Contabo requires bucket policy for public access
+            // Instead, we return presigned URLs with 7-day expiration
         };
 
         var uploadStopwatch = Stopwatch.StartNew();
@@ -89,14 +89,16 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
             Console.WriteLine($"   ✓ HTTP Status: {(int)response.HttpStatusCode} {response.HttpStatusCode}");
             Console.WriteLine($"   ✓ ETag: {response.ETag}");
 
-            var publicUrl = GetPublicUrl(fileKey);
-            Console.WriteLine($"   ✓ Public URL: {publicUrl}");
+            // Return presigned URL with 7 day expiration for AI preview images
+            // This is required because Contabo S3 doesn't support public bucket policies via ACL alone
+            var presignedUrl = GetPresignedUrl(fileKey, TimeSpan.FromDays(7));
+            Console.WriteLine($"   ✓ Presigned URL (7d): {presignedUrl[..Math.Min(80, presignedUrl.Length)]}...");
 
             _logger.LogInformation(
                 "✅ File uploaded to S3: {FileKey}, ETag: {ETag}, Status: {StatusCode}, Duration: {Duration}s",
                 fileKey, response.ETag, response.HttpStatusCode, uploadStopwatch.Elapsed.TotalSeconds);
 
-            return publicUrl;
+            return presignedUrl;
         }
         catch (AmazonS3Exception ex)
         {
@@ -203,11 +205,6 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileKey);
 
-        // TODO: Реализовать после перехода на приватный бакет
-        // Сейчас возвращаем публичный URL, т.к. бакет открыт
-
-        // Пример реализации presigned URL (раскомментировать после настройки приватного бакета):
-        /*
         var request = new GetPreSignedUrlRequest
         {
             BucketName = _options.BucketName,
@@ -215,14 +212,14 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
             Expires = DateTime.UtcNow.Add(expiresIn),
             Verb = HttpVerb.GET
         };
-        return _s3Client.GetPreSignedURL(request);
-        */
+
+        var presignedUrl = _s3Client.GetPreSignedURL(request);
 
         _logger.LogDebug(
-            "GetPresignedUrl called but bucket is public. Returning public URL. FileKey: {FileKey}",
-            fileKey);
+            "Generated presigned URL for FileKey: {FileKey}, ExpiresIn: {ExpiresIn}",
+            fileKey, expiresIn);
 
-        return GetPublicUrl(fileKey);
+        return presignedUrl;
     }
 
     /// <inheritdoc />
@@ -230,11 +227,12 @@ public sealed class S3StorageService : IS3StorageService, IDisposable
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(fileKey);
 
-        // Формат URL для Contabo Object Storage:
-        // https://usc1.contabostorage.com/bucketId:bucketName/fileKey
-        // Для публичных URL нужно использовать полный bucket ID
-        var fullBucketName = "b6dff85a0bf0428f9df1725ed460985b:jewbucket";
-        var url = $"{_options.ServiceUrl.TrimEnd('/')}/{fullBucketName}/{fileKey}";
+        // Формат URL для Contabo Object Storage (публичный доступ):
+        // https://usc1.contabostorage.com/jewbucket/fileKey
+        // Bucket name берется из конфигурации без tenant ID
+        var url = $"{_options.ServiceUrl.TrimEnd('/')}/{_options.BucketName}/{fileKey}";
+
+        _logger.LogDebug("Generated public URL: {Url} for key: {FileKey}", url, fileKey);
 
         return url;
     }

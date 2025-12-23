@@ -3,6 +3,7 @@ using System;
 using JewerlyBack.Data;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
@@ -11,9 +12,11 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace JewerlyBack.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20251212180626_CleanBaseModelDescriptionsRemoveStoneReferences")]
+    partial class CleanBaseModelDescriptionsRemoveStoneReferences
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -1401,144 +1404,6 @@ namespace JewerlyBack.Migrations
                         });
                 });
 
-            modelBuilder.Entity("JewerlyBack.Models.UpgradeAnalysis", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AnalysisDataJson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset?>("CompletedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<double>("ConfidenceScore")
-                        .HasPrecision(5, 4)
-                        .HasColumnType("double precision");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<int?>("DetectedCategoryId")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("DetectedMetal")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("DetectedMetalDescription")
-                        .HasMaxLength(500)
-                        .HasColumnType("character varying(500)");
-
-                    b.Property<string>("DetectedStonesJson")
-                        .HasColumnType("text");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("GuestClientId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("HasStones")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("JewelryType")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("OriginalImageUrl")
-                        .IsRequired()
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<string>("StyleClassification")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<string>("SuggestionsJson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("DetectedCategoryId");
-
-                    b.HasIndex("GuestClientId")
-                        .HasFilter("\"GuestClientId\" IS NOT NULL");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("UserId")
-                        .HasFilter("\"UserId\" IS NOT NULL");
-
-                    b.ToTable("UpgradeAnalyses");
-                });
-
-            modelBuilder.Entity("JewerlyBack.Models.UpgradePreviewJob", b =>
-                {
-                    b.Property<Guid>("Id")
-                        .ValueGeneratedOnAdd()
-                        .HasColumnType("uuid");
-
-                    b.Property<Guid>("AnalysisId")
-                        .HasColumnType("uuid");
-
-                    b.Property<string>("AppliedSuggestionsJson")
-                        .HasColumnType("text");
-
-                    b.Property<DateTimeOffset>("CreatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<string>("EnhancedImageUrl")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("ErrorMessage")
-                        .HasMaxLength(1000)
-                        .HasColumnType("character varying(1000)");
-
-                    b.Property<string>("GuestClientId")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)");
-
-                    b.Property<bool>("KeptOriginal")
-                        .HasColumnType("boolean");
-
-                    b.Property<string>("Prompt")
-                        .HasMaxLength(8000)
-                        .HasColumnType("character varying(8000)");
-
-                    b.Property<int>("Status")
-                        .HasColumnType("integer");
-
-                    b.Property<DateTimeOffset>("UpdatedAtUtc")
-                        .HasColumnType("timestamp with time zone");
-
-                    b.Property<Guid?>("UserId")
-                        .HasColumnType("uuid");
-
-                    b.HasKey("Id");
-
-                    b.HasIndex("AnalysisId");
-
-                    b.HasIndex("Status");
-
-                    b.HasIndex("UserId");
-
-                    b.ToTable("UpgradePreviewJobs");
-                });
-
             modelBuilder.Entity("JewerlyBack.Models.UploadedAsset", b =>
                 {
                     b.Property<Guid>("Id")
@@ -1685,41 +1550,6 @@ namespace JewerlyBack.Migrations
                     b.Navigation("Order");
                 });
 
-            modelBuilder.Entity("JewerlyBack.Models.UpgradeAnalysis", b =>
-                {
-                    b.HasOne("JewerlyBack.Models.JewelryCategory", "DetectedCategory")
-                        .WithMany()
-                        .HasForeignKey("DetectedCategoryId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.HasOne("JewerlyBack.Models.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("DetectedCategory");
-
-                    b.Navigation("User");
-                });
-
-            modelBuilder.Entity("JewerlyBack.Models.UpgradePreviewJob", b =>
-                {
-                    b.HasOne("JewerlyBack.Models.UpgradeAnalysis", "Analysis")
-                        .WithMany("PreviewJobs")
-                        .HasForeignKey("AnalysisId")
-                        .OnDelete(DeleteBehavior.Cascade)
-                        .IsRequired();
-
-                    b.HasOne("JewerlyBack.Models.AppUser", "User")
-                        .WithMany()
-                        .HasForeignKey("UserId")
-                        .OnDelete(DeleteBehavior.SetNull);
-
-                    b.Navigation("Analysis");
-
-                    b.Navigation("User");
-                });
-
             modelBuilder.Entity("JewerlyBack.Models.UploadedAsset", b =>
                 {
                     b.HasOne("JewerlyBack.Models.JewelryConfiguration", "Configuration")
@@ -1781,11 +1611,6 @@ namespace JewerlyBack.Migrations
             modelBuilder.Entity("JewerlyBack.Models.StoneType", b =>
                 {
                     b.Navigation("ConfigurationStones");
-                });
-
-            modelBuilder.Entity("JewerlyBack.Models.UpgradeAnalysis", b =>
-                {
-                    b.Navigation("PreviewJobs");
                 });
 #pragma warning restore 612, 618
         }
